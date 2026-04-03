@@ -114,3 +114,14 @@ export class UnauthorizedError extends BeeError {
     this.name = 'UnauthorizedError'
   }
 }
+
+export class DuplicateIdError extends BeeError {
+  /**
+   * @param {string} message
+   * @param {string} [requestId]
+   */
+  constructor(message, requestId) {
+    super({ code: 'ERR_DUPLICATE_ID', message, statusCode: 409, retryable: true, requestId })
+    this.name = 'DuplicateIdError'
+  }
+}

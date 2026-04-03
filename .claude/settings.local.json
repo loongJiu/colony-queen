@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(timeout 5 node src/index.js)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

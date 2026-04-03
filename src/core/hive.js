@@ -18,6 +18,9 @@ export class Hive {
   /** @type {Map<string, Set<string>>} */
   #byStatus = new Map()
 
+  /** @type {Map<string, string>} sessionToken → agentId */
+  #bySessionToken = new Map()
+
   // ── 注册 ──────────────────────────────────────
 
   /**
@@ -29,15 +32,14 @@ export class Hive {
    * @throws {ValidationError} sessionToken 已被使用
    */
   register(spec, sessionToken) {
-    for (const agent of this.#agents.values()) {
-      if (agent.sessionToken === sessionToken) {
-        throw new ValidationError(`Agent already registered with session token "${sessionToken}"`)
-      }
+    if (this.#bySessionToken.has(sessionToken)) {
+      throw new ValidationError(`Agent already registered with session token "${sessionToken}"`)
     }
 
     const record = createAgentRecord(spec, sessionToken)
 
     this.#agents.set(record.agentId, record)
+    this.#bySessionToken.set(sessionToken, record.agentId)
 
     for (const cap of record.capabilities) {
       this.#getOrCreateSet(this.#byCapability, cap).add(record.agentId)
@@ -64,6 +66,7 @@ export class Hive {
     }
 
     this.#agents.delete(agentId)
+    this.#bySessionToken.delete(record.sessionToken)
 
     for (const cap of record.capabilities) {
       this.#removeFromSet(this.#byCapability, cap, agentId)
@@ -84,6 +87,63 @@ export class Hive {
    */
   get(agentId) {
     return this.#agents.get(agentId)
+  }
+
+  /**
+   * 通过 session token 获取 Agent
+   *
+   * @param {string} sessionToken
+   * @returns {import('../models/agent.js').AgentRecord | undefined}
+   */
+  getBySessionToken(sessionToken) {
+    const agentId = this.#bySessionToken.get(sessionToken)
+    if (!agentId) return undefined
+    return this.#agents.get(agentId)
+  }
+
+  /**
+   * 更新 Agent 的 spec 字段（capabilities, constraints 等）
+   *
+   * @param {string} agentId
+   * @param {{ capabilities?: string[], constraints?: Object, [key: string]: any }} patch
+   * @returns {import('../models/agent.js').AgentRecord}
+   * @throws {NotFoundError} agentId 不存在
+   */
+  updateSpec(agentId, patch) {
+    const record = this.#agents.get(agentId)
+    if (!record) {
+      throw new NotFoundError(`Agent "${agentId}" not found`)
+    }
+
+    // 处理 capabilities 变更：先清除旧索引
+    if (patch.capabilities != null) {
+      for (const cap of record.capabilities) {
+        this.#removeFromSet(this.#byCapability, cap, agentId)
+      }
+    }
+
+    // 处理 constraints：按子字段 merge
+    const constraints = patch.constraints != null
+      ? { ...record.constraints, ...patch.constraints }
+      : record.constraints
+
+    const { constraints: _c, ...restPatch } = patch
+    const updated = Object.freeze({
+      ...record,
+      ...restPatch,
+      constraints
+    })
+
+    this.#agents.set(agentId, updated)
+
+    // 建立新的 capability 索引
+    if (patch.capabilities != null) {
+      for (const cap of updated.capabilities) {
+        this.#getOrCreateSet(this.#byCapability, cap).add(agentId)
+      }
+    }
+
+    return updated
   }
 
   /**

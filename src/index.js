@@ -1,12 +1,18 @@
 import Fastify from 'fastify'
 import config from './config.js'
 import { BeeError } from './utils/errors.js'
+import { Hive } from './core/hive.js'
+import colonyRoutes from './handlers/colony.js'
 
 const app = Fastify({
   logger: {
     level: config.NODE_ENV === 'production' ? 'info' : 'debug'
   }
 })
+
+// 初始化 Hive 注册表
+const hive = new Hive()
+app.decorate('hive', hive)
 
 // 统一错误处理
 app.setErrorHandler((err, request, reply) => {
@@ -43,6 +49,9 @@ app.setErrorHandler((err, request, reply) => {
 app.get('/health', async () => {
   return { status: 'ok', timestamp: Date.now() }
 })
+
+// 注册路由
+app.register(colonyRoutes, { hive, colonyToken: config.COLONY_TOKEN })
 
 // Start server
 try {
