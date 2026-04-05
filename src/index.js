@@ -4,6 +4,7 @@ import { BeeError } from './utils/errors.js'
 import { Hive } from './core/hive.js'
 import { Waggle } from './core/waggle.js'
 import { Scheduler } from './core/scheduler.js'
+import { HeartbeatMonitor } from './services/heartbeat.js'
 import colonyRoutes from './handlers/colony.js'
 
 const app = Fastify({
@@ -62,6 +63,15 @@ app.get('/health', async () => {
 
 // 注册路由
 app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN })
+
+// 启动心跳监控
+const heartbeatMonitor = new HeartbeatMonitor({
+  hive,
+  waggle,
+  intervalMs: config.HEARTBEAT_CHECK_INTERVAL_MS,
+  timeoutMs: config.HEARTBEAT_TIMEOUT_MS
+})
+heartbeatMonitor.start()
 
 // Start server
 try {
