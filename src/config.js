@@ -17,7 +17,10 @@ const schema = z.object({
   HEARTBEAT_TIMEOUT_MS: z.coerce.number().default(30000),
 
   TASK_DEFAULT_TIMEOUT_S: z.coerce.number().default(30),
-  TASK_QUEUE_MAX_SIZE: z.coerce.number().default(1000)
+  TASK_QUEUE_MAX_SIZE: z.coerce.number().default(1000),
+
+  WAGGLE_DEFAULT_TTL_MS: z.coerce.number().default(30000),
+  WAGGLE_QUEUE_MAX_SIZE: z.coerce.number().default(1000)
 })
 
 /** @type {z.infer<typeof schema>} */

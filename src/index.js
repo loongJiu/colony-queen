@@ -2,6 +2,8 @@ import Fastify from 'fastify'
 import config from './config.js'
 import { BeeError } from './utils/errors.js'
 import { Hive } from './core/hive.js'
+import { Waggle } from './core/waggle.js'
+import { Scheduler } from './core/scheduler.js'
 import colonyRoutes from './handlers/colony.js'
 
 const app = Fastify({
@@ -13,6 +15,14 @@ const app = Fastify({
 // 初始化 Hive 注册表
 const hive = new Hive()
 app.decorate('hive', hive)
+
+// 初始化 Waggle 消息总线
+const waggle = new Waggle({ maxSize: config.WAGGLE_QUEUE_MAX_SIZE })
+app.decorate('waggle', waggle)
+
+// 初始化 Scheduler 调度器
+const scheduler = new Scheduler({ hive })
+app.decorate('scheduler', scheduler)
 
 // 统一错误处理
 app.setErrorHandler((err, request, reply) => {
@@ -51,7 +61,7 @@ app.get('/health', async () => {
 })
 
 // 注册路由
-app.register(colonyRoutes, { hive, colonyToken: config.COLONY_TOKEN })
+app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN })
 
 // Start server
 try {

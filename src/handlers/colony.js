@@ -18,10 +18,10 @@ const NONCE_TTL_MS = 30_000
  * 注册 Colony 路由到 Fastify 实例
  *
  * @param {import('fastify').FastifyInstance} app
- * @param {{ hive: import('../core/hive.js').Hive, colonyToken: string }} options
+ * @param {{ hive: import('../core/hive.js').Hive, waggle: import('../core/waggle.js').Waggle, colonyToken: string }} options
  */
 export default function colonyRoutes(app, options) {
-  const { hive, colonyToken } = options
+  const { hive, waggle, colonyToken } = options
 
   // ── POST /colony/join ─────────────────────────
 
@@ -146,6 +146,7 @@ export default function colonyRoutes(app, options) {
     const agent = authenticateByToken(session_token)
 
     hive.unregister(agent.agentId)
+    waggle?.purge(agent.agentId)
 
     request.log.info({ agentId: agent.agentId }, 'Agent left')
 
