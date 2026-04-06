@@ -4,8 +4,11 @@ import { BeeError } from './utils/errors.js'
 import { Hive } from './core/hive.js'
 import { Waggle } from './core/waggle.js'
 import { Scheduler } from './core/scheduler.js'
+import { Planner } from './core/planner.js'
+import { Executor } from './services/executor.js'
 import { HeartbeatMonitor } from './services/heartbeat.js'
 import colonyRoutes from './handlers/colony.js'
+import taskRoutes from './handlers/task.js'
 
 const app = Fastify({
   logger: {
@@ -24,6 +27,17 @@ app.decorate('waggle', waggle)
 // 初始化 Scheduler 调度器
 const scheduler = new Scheduler({ hive })
 app.decorate('scheduler', scheduler)
+
+// 初始化 Planner 任务规划器
+const planner = new Planner({ hive })
+app.decorate('planner', planner)
+
+// 初始化 Executor 任务执行器
+const executor = new Executor({
+  scheduler,
+  defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000
+})
+app.decorate('executor', executor)
 
 // 统一错误处理
 app.setErrorHandler((err, request, reply) => {
@@ -63,6 +77,7 @@ app.get('/health', async () => {
 
 // 注册路由
 app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN })
+app.register(taskRoutes, { planner, executor, hive })
 
 // 启动心跳监控
 const heartbeatMonitor = new HeartbeatMonitor({

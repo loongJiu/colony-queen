@@ -40,3 +40,8 @@ export function genSessionId() {
 export function genMessageId() {
   return genId('msg')
 }
+
+/** 生成会话（conversation）ID */
+export function genConvId() {
+  return genId('conv')
+}
