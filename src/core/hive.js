@@ -257,6 +257,15 @@ export class Hive {
     return this.#agents.has(agentId)
   }
 
+  /**
+   * 返回所有 Agent
+   *
+   * @returns {import('../models/agent.js').AgentRecord[]}
+   */
+  listAll() {
+    return [...this.#agents.values()]
+  }
+
   // ── 内部工具 ──────────────────────────────────
 
   /**

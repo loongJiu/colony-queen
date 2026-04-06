@@ -13,6 +13,12 @@ export class Executor {
   /** @type {import('../core/scheduler.js').Scheduler} */
   #scheduler
 
+  /** @type {import('./retry.js').RetryService | null} */
+  #retryService
+
+  /** @type {Object} */
+  #logger
+
   /** @type {Map<string, import('../models/task.js').TaskRecord>} taskId → TaskRecord（不可变，每次状态变更创建新冻结对象替换） */
   #tasks = new Map()
 
@@ -25,11 +31,15 @@ export class Executor {
   /**
    * @param {{
    *   scheduler: import('../core/scheduler.js').Scheduler,
+   *   retryService?: import('./retry.js').RetryService,
+   *   logger?: Object,
    *   defaultTimeoutMs?: number
    * }} deps
    */
-  constructor({ scheduler, defaultTimeoutMs = 30000 }) {
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000 }) {
     this.#scheduler = scheduler
+    this.#retryService = retryService
+    this.#logger = logger
     this.#defaultTimeout = defaultTimeoutMs
   }
 
@@ -103,13 +113,35 @@ export class Executor {
     return true
   }
 
+  /**
+   * 列出所有任务
+   *
+   * @returns {import('../models/task.js').TaskRecord[]}
+   */
+  listTasks() {
+    return [...this.#tasks.values()]
+  }
+
+  /**
+   * 获取指定 Agent 执行中的任务
+   *
+   * @param {string} agentId
+   * @returns {import('../models/task.js').TaskRecord[]}
+   */
+  getTasksByAgent(agentId) {
+    return [...this.#tasks.values()].filter(task =>
+      task.results.some(r => r.agentId === agentId) &&
+      (task.status === 'running' || task.status === 'pending')
+    )
+  }
+
   // ── 内部执行方法 ──────────────────────────────
 
   /**
    * 串行执行多步任务
    *
    * 前一步的 output 作为下一步的 input。
-   * 任一步失败则停止，标记整体为 failure。
+   * 任一步失败则尝试重试，重试耗尽则停止，标记整体为 failure。
    *
    * @param {import('../models/task.js').TaskRecord} task
    * @param {AbortController} abortController
@@ -131,13 +163,49 @@ export class Executor {
         : undefined
       const stepInput = i === 0 ? task.request?.input : prevOutput
 
-      const stepResult = await this.#executeStep(
+      // 执行步骤（支持重试）
+      let stepResult = await this.#executeStep(
         { ...step, input: stepInput },
         task.conversationId,
         task.taskId,
         abortController,
         timeoutMs
       )
+
+      // 如果失败且可重试，使用 RetryService
+      if (stepResult.status === 'failure' && stepResult.error?.retryable && this.#retryService) {
+        let retryCount = 0
+        const excludeAgentIds = stepResult.agentId !== 'unknown' ? [stepResult.agentId] : []
+
+        while (retryCount < 3) { // 最大重试次数硬编码保护
+          const { result: retryResult, shouldRetry } = await this.#retryService.executeWithRetry({
+            fn: async (excludedIds) => {
+              return await this.#executeStep(
+                { ...step, input: stepInput },
+                task.conversationId,
+                task.taskId,
+                abortController,
+                timeoutMs,
+                excludedIds
+              )
+            },
+            lastResult: stepResult,
+            retryCount,
+            excludeAgentIds,
+            logger: this.#logger
+          })
+
+          stepResult = retryResult
+
+          if (!shouldRetry || stepResult.status === 'success') break
+          retryCount++
+
+          // 更新排除列表
+          if (stepResult.agentId !== 'unknown' && !excludeAgentIds.includes(stepResult.agentId)) {
+            excludeAgentIds.push(stepResult.agentId)
+          }
+        }
+      }
 
       results.push(stepResult)
       current = this.#updateTask(current, { results: [...results] })
@@ -220,12 +288,29 @@ export class Executor {
   }
 
   /**
+   * 执行步骤（重试版本，排除指定 Agent）
+   *
+   * 与 #executeStep 相同，但使用 scheduler.selectAgentExcluding() 排除已失败的 Agent。
+   *
+   * @param {Object} step
+   * @param {string} conversationId
+   * @param {string} taskId
+   * @param {AbortController} abortController
+   * @param {number} timeoutMs
+   * @param {string[]} excludeAgentIds
+   * @returns {Promise<import('../models/task.js').StepResult>}
+   */
+  async #executeStepWithRetry(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds) {
+    return await this.#executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds)
+  }
+
+  /**
    * 执行一个步骤（核心方法）
    *
    * 不抛异常，错误封装为 StepResult（「错误即结果」模式）。
    *
    * 流程：
-   * 1. scheduler.selectAgent(step.capability) 选择 Agent
+   * 1. scheduler.selectAgent(step.capability) 选择 Agent（可选排除列表）
    * 2. 构建 task_assign payload（与 message.js VALID_TYPES 一致）
    * 3. 创建 AbortController + setTimeout
    * 4. POST {agent.endpoint}/bee/task 发送任务
@@ -239,15 +324,20 @@ export class Executor {
    * @param {string} taskId
    * @param {AbortController} abortController
    * @param {number} timeoutMs
+   * @param {string[]} [excludeAgentIds] - 排除的 Agent ID 列表
    * @returns {Promise<import('../models/task.js').StepResult>}
    */
-  async #executeStep(step, conversationId, taskId, abortController, timeoutMs) {
+  async #executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds = []) {
     const startedAt = Date.now()
 
-    // 1. 选择 Agent
+    // 1. 选择 Agent（支持排除列表）
     let agent
     try {
-      agent = this.#scheduler.selectAgent(step.capability)
+      if (excludeAgentIds.length > 0) {
+        agent = this.#scheduler.selectAgentExcluding(step.capability, excludeAgentIds)
+      } else {
+        agent = this.#scheduler.selectAgent(step.capability)
+      }
     } catch (err) {
       return createStepResult({
         stepIndex: step.stepIndex,

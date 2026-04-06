@@ -7,8 +7,11 @@ import { Scheduler } from './core/scheduler.js'
 import { Planner } from './core/planner.js'
 import { Executor } from './services/executor.js'
 import { HeartbeatMonitor } from './services/heartbeat.js'
+import { RetryService } from './services/retry.js'
+import { TaskRescheduler } from './services/rescheduler.js'
 import colonyRoutes from './handlers/colony.js'
 import taskRoutes from './handlers/task.js'
+import adminRoutes from './handlers/admin.js'
 
 const app = Fastify({
   logger: {
@@ -32,9 +35,15 @@ app.decorate('scheduler', scheduler)
 const planner = new Planner({ hive })
 app.decorate('planner', planner)
 
+// 初始化 RetryService 重试服务
+const retryService = new RetryService()
+app.decorate('retryService', retryService)
+
 // 初始化 Executor 任务执行器
 const executor = new Executor({
   scheduler,
+  retryService,
+  logger: app.log,
   defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000
 })
 app.decorate('executor', executor)
@@ -87,6 +96,31 @@ const heartbeatMonitor = new HeartbeatMonitor({
   timeoutMs: config.HEARTBEAT_TIMEOUT_MS
 })
 heartbeatMonitor.start()
+
+// 注册管理路由（需要 heartbeatMonitor）
+app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor })
+
+// 初始化 TaskRescheduler 任务重调度器
+const rescheduler = new TaskRescheduler({
+  waggle,
+  executor,
+  scheduler,
+  logger: app.log
+})
+app.decorate('rescheduler', rescheduler)
+
+// 应用生命周期钩子
+app.addHook('onReady', async () => {
+  // 启动任务重调度器
+  rescheduler.start()
+  app.log.info('TaskRescheduler started')
+})
+
+app.addHook('onClose', async () => {
+  // 停止任务重调度器
+  rescheduler.stop()
+  app.log.info('TaskRescheduler stopped')
+})
 
 // Start server
 try {

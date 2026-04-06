@@ -69,6 +69,62 @@ export class Scheduler {
   }
 
   /**
+   * 选择 Agent，排除指定的 ID 列表
+   *
+   * 用于重试场景：排除已失败的 Agent，重新选择可用 Agent。
+   *
+   * @param {string} capability - 需要的能力
+   * @param {string[]} excludeAgentIds - 排除的 Agent ID 列表
+   * @returns {import('../models/agent.js').AgentRecord}
+   * @throws {UnavailableError} 没有可用的 Agent
+   */
+  selectAgentExcluding(capability, excludeAgentIds = []) {
+    if (!capability) {
+      throw new UnavailableError('Capability is required for agent selection')
+    }
+
+    // 1. 能力过滤
+    const candidates = this.#hive.findByCapability(capability, { activeOnly: true })
+
+    if (candidates.length === 0) {
+      throw new UnavailableError(
+        `No available agent with capability "${capability}"`
+      )
+    }
+
+    // 2. 排除指定的 Agent ID
+    const filtered = candidates.filter(
+      agent => !excludeAgentIds.includes(agent.agentId)
+    )
+
+    if (filtered.length === 0) {
+      throw new UnavailableError(
+        `No available agent with capability "${capability}" after excluding ${excludeAgentIds.length} agent(s)`
+      )
+    }
+
+    // 3. 健康过滤
+    const healthy = filtered.filter(
+      agent => !UNHEALTHY_STATUSES.has(agent.status)
+    )
+
+    if (healthy.length === 0) {
+      throw new UnavailableError(
+        `No healthy agent with capability "${capability}" after excluding ${excludeAgentIds.length} agent(s)`
+      )
+    }
+
+    // 4. 负载排序
+    healthy.sort((a, b) => {
+      if (a.load !== b.load) return a.load - b.load
+      if (a.activeTasks !== b.activeTasks) return a.activeTasks - b.activeTasks
+      return a.agentId.localeCompare(b.agentId)
+    })
+
+    return healthy[0]
+  }
+
+  /**
    * 检查指定 Agent 是否可用于调度
    *
    * @param {string} agentId
