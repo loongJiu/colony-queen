@@ -23,19 +23,24 @@ export class HeartbeatMonitor {
   /** @type {ReturnType<typeof setInterval>|null} */
   #timer = null
 
+  /** @type {import('../utils/event-bus.js').EventBus | null} */
+  #eventBus
+
   /**
    * @param {{
    *   hive: import('../core/hive.js').Hive,
    *   waggle: import('../core/waggle.js').Waggle,
    *   intervalMs?: number,
-   *   timeoutMs?: number
+   *   timeoutMs?: number,
+   *   eventBus?: import('../utils/event-bus.js').EventBus
    * }} options
    */
-  constructor({ hive, waggle, intervalMs = 10000, timeoutMs = 30000 }) {
+  constructor({ hive, waggle, intervalMs = 10000, timeoutMs = 30000, eventBus = null }) {
     this.#hive = hive
     this.#waggle = waggle
     this.#intervalMs = intervalMs
     this.#timeoutMs = timeoutMs
+    this.#eventBus = eventBus
   }
 
   /**
@@ -80,6 +85,8 @@ export class HeartbeatMonitor {
       if (!this.#hive.has(agentId)) continue
 
       this.#hive.markOffline(agentId)
+      const agent = this.#hive.get(agentId)
+      this.#eventBus?.emit('agent.updated', agent)
 
       this.#waggle.broadcast(
         createMessageRecord({

@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import config from './config.js'
 import { BeeError } from './utils/errors.js'
+import { EventBus } from './utils/event-bus.js'
 import { Hive } from './core/hive.js'
 import { Waggle } from './core/waggle.js'
 import { Scheduler } from './core/scheduler.js'
@@ -13,12 +14,17 @@ import { TaskRescheduler } from './services/rescheduler.js'
 import colonyRoutes from './handlers/colony.js'
 import taskRoutes from './handlers/task.js'
 import adminRoutes from './handlers/admin.js'
+import streamRoutes from './handlers/stream.js'
 
 const app = Fastify({
   logger: {
     level: config.NODE_ENV === 'production' ? 'info' : 'debug'
   }
 })
+
+// 初始化 EventBus 事件总线
+const eventBus = new EventBus()
+app.decorate('eventBus', eventBus)
 
 // 初始化 Hive 注册表
 const hive = new Hive()
@@ -60,7 +66,8 @@ const executor = new Executor({
   retryService,
   logger: app.log,
   defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000,
-  maxRetry: config.SCHEDULER_MAX_RETRY
+  maxRetry: config.SCHEDULER_MAX_RETRY,
+  eventBus
 })
 app.decorate('executor', executor)
 
@@ -101,20 +108,24 @@ app.get('/health', async () => {
 })
 
 // 注册路由
-app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN })
-app.register(taskRoutes, { planner, executor, hive })
+app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN, eventBus })
+app.register(taskRoutes, { planner, executor, hive, eventBus })
 
 // 启动心跳监控
 const heartbeatMonitor = new HeartbeatMonitor({
   hive,
   waggle,
   intervalMs: config.HEARTBEAT_CHECK_INTERVAL_MS,
-  timeoutMs: config.HEARTBEAT_TIMEOUT_MS
+  timeoutMs: config.HEARTBEAT_TIMEOUT_MS,
+  eventBus
 })
 heartbeatMonitor.start()
 
 // 注册管理路由（需要 heartbeatMonitor）
-app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor })
+app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor, eventBus })
+
+// 注册 SSE 流式推送路由
+app.register(streamRoutes, { hive, executor, eventBus })
 
 // 初始化 TaskRescheduler 任务重调度器
 const rescheduler = new TaskRescheduler({

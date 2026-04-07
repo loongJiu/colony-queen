@@ -21,7 +21,7 @@ const NONCE_TTL_MS = 30_000
  * @param {{ hive: import('../core/hive.js').Hive, waggle: import('../core/waggle.js').Waggle, colonyToken: string }} options
  */
 export default function colonyRoutes(app, options) {
-  const { hive, waggle, colonyToken } = options
+  const { hive, waggle, colonyToken, eventBus } = options
 
   // ── POST /colony/join ─────────────────────────
 
@@ -82,6 +82,7 @@ export default function colonyRoutes(app, options) {
     const record = hive.register(challenge.spec, sessionToken)
 
     request.log.info({ agentId: record.agentId, role: record.role }, 'Agent joined')
+    eventBus?.emit('agent.updated', record)
 
     reply.status(200).send({
       type: 'colony.welcome',
@@ -108,6 +109,7 @@ export default function colonyRoutes(app, options) {
     })
 
     request.log.debug({ agentId: agent.agentId }, 'Heartbeat received')
+    eventBus?.emit('agent.updated', updated)
 
     reply.status(200).send({
       type: 'colony.heartbeat_ack',
@@ -130,6 +132,7 @@ export default function colonyRoutes(app, options) {
     const updated = hive.updateSpec(agent.agentId, patch)
 
     request.log.info({ agentId: agent.agentId }, 'Agent spec updated')
+    eventBus?.emit('agent.updated', updated)
 
     reply.status(200).send({
       type: 'colony.update_ack',
@@ -149,6 +152,7 @@ export default function colonyRoutes(app, options) {
     waggle?.purge(agent.agentId)
 
     request.log.info({ agentId: agent.agentId }, 'Agent left')
+    eventBus?.emit('agent.updated', { ...agent, status: 'offline', _removed: true })
 
     reply.status(200).send({
       type: 'colony.goodbye',

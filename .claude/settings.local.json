@@ -5,7 +5,9 @@
       "Bash(timeout 5 node src/index.js)",
       "Bash(node:*)",
       "Bash(npx vitest:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(npm create:*)",
+      "Bash(npx vite:*)"
     ]
   }
 }

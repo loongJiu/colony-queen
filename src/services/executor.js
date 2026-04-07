@@ -41,12 +41,16 @@ export class Executor {
    */
   #maxRetry
 
-  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3 }) {
+  /** @type {import('../utils/event-bus.js').EventBus | null} */
+  #eventBus
+
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null }) {
     this.#scheduler = scheduler
     this.#retryService = retryService
     this.#logger = logger
     this.#defaultTimeout = defaultTimeoutMs
     this.#maxRetry = maxRetry
+    this.#eventBus = eventBus
   }
 
   /**
@@ -572,6 +576,7 @@ export class Executor {
   #updateTask(task, patch) {
     const updated = Object.freeze({ ...task, ...patch })
     this.#tasks.set(task.taskId, updated)
+    this.#eventBus?.emit('task.updated', updated)
     return updated
   }
 

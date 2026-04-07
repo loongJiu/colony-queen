@@ -16,7 +16,7 @@ import { NotFoundError } from '../utils/errors.js'
  * @param {import('../services/executor.js').Executor} options.executor
  * @param {import('../services/heartbeat.js').HeartbeatMonitor} options.heartbeat
  */
-export default function adminRoutes(app, { hive, executor, heartbeat }) {
+export default function adminRoutes(app, { hive, executor, heartbeat, eventBus }) {
 
   /**
    * GET /admin/agents
@@ -111,7 +111,10 @@ export default function adminRoutes(app, { hive, executor, heartbeat }) {
     }
 
     // 注销 Agent
+    const agent = hive.get(id)
     hive.unregister(id)
+
+    eventBus?.emit('agent.updated', { ...agent, status: 'offline', _removed: true })
 
     // 通知 Waggle（best-effort）
     try {
