@@ -19,10 +19,16 @@ function formatTime (ts) {
 }
 
 export function TaskLogPanel ({ logs = [], maxHeight = 320 }) {
-  const bottomRef = useRef(null)
+  const listRef = useRef(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = listRef.current
+    if (!el) return
+    // 仅在用户已滚动到接近底部时自动跟随
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
+    if (atBottom) {
+      el.scrollTop = el.scrollHeight
+    }
   }, [logs.length])
 
   if (logs.length === 0) {
@@ -46,7 +52,7 @@ export function TaskLogPanel ({ logs = [], maxHeight = 320 }) {
       </div>
 
       {/* Log entries */}
-      <div style={styles.logList}>
+      <div ref={listRef} style={styles.logList}>
         {logs.map((entry, i) => {
           const src = SOURCE_STYLES[entry.source] || SOURCE_STYLES.system
           return (
@@ -73,7 +79,6 @@ export function TaskLogPanel ({ logs = [], maxHeight = 320 }) {
             </div>
           )
         })}
-        <div ref={bottomRef} />
       </div>
     </div>
   )
