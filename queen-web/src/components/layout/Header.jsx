@@ -1,9 +1,25 @@
+import { useLocation } from 'react-router-dom'
 import { useConnectionStore } from '../../stores/connection'
 import { ThemeToggle } from '../common/ThemeToggle'
 import { Wifi, WifiOff } from 'lucide-react'
 
+const ROUTE_LABELS = {
+  '/': 'Overview',
+  '/tasks': 'Tasks',
+  '/agents': 'Agents'
+}
+
+function getBreadcrumbLabel (pathname) {
+  if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]
+  if (pathname.startsWith('/tasks/')) return 'Task Detail'
+  if (pathname.startsWith('/agents/')) return 'Agent Detail'
+  return 'Overview'
+}
+
 export function Header () {
   const connected = useConnectionStore((s) => s.connected)
+  const location = useLocation()
+  const label = getBreadcrumbLabel(location.pathname)
 
   return (
     <header style={styles.header}>
@@ -11,7 +27,7 @@ export function Header () {
         <div style={styles.breadcrumb}>
           <span style={styles.breadcrumbDim}>Colony</span>
           <span style={styles.breadcrumbSep}>/</span>
-          <span style={styles.breadcrumbActive}>Overview</span>
+          <span style={styles.breadcrumbActive}>{label}</span>
         </div>
       </div>
 

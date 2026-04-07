@@ -5,8 +5,6 @@ export const useTaskStore = create((set, get) => ({
   taskStats: { pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 },
   // 任务日志：{ taskId: LogEntry[] }
   taskLogs: {},
-  // 当前选中的任务详情（通过 API 获取的完整数据）
-  selectedTask: null,
 
   setSnapshot (data) {
     set({
@@ -22,12 +20,7 @@ export const useTaskStore = create((set, get) => ({
         ? state.tasks.map((t) => (t.taskId === updated.taskId ? { ...t, ...updated } : t))
         : [...state.tasks, updated]
 
-      // 如果当前选中的任务被更新，同步更新 selectedTask
-      const selectedTask = state.selectedTask?.taskId === updated.taskId
-        ? { ...state.selectedTask, ...updated }
-        : state.selectedTask
-
-      return { tasks, taskStats: recalcTaskStats(tasks), selectedTask }
+      return { tasks, taskStats: recalcTaskStats(tasks) }
     })
   },
 
@@ -55,14 +48,6 @@ export const useTaskStore = create((set, get) => ({
    */
   getLogs (taskId) {
     return get().taskLogs[taskId] || []
-  },
-
-  /**
-   * 设置当前选中的任务详情
-   * @param {Object|null} task
-   */
-  setSelectedTask (task) {
-    set({ selectedTask: task })
   }
 }))
 

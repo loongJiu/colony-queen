@@ -4,7 +4,7 @@ import { STATUS_LABELS } from '../../utils/constants'
 import { formatTimeAgo, formatPercent } from '../../utils/format'
 import { Cpu, Activity } from 'lucide-react'
 
-export function AgentCard ({ agent }) {
+export function AgentCard ({ agent, onClick }) {
   const {
     agentId,
     name,
@@ -16,7 +16,23 @@ export function AgentCard ({ agent }) {
   } = agent
 
   return (
-    <div style={styles.card} data-status={status}>
+    <div
+      style={{ ...styles.card, cursor: onClick ? 'pointer' : 'default' }}
+      data-status={status}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        if (onClick) {
+          e.currentTarget.style.borderColor = 'var(--color-primary)44'
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) {
+          e.currentTarget.style.borderColor = 'var(--color-border)'
+          e.currentTarget.style.transform = 'none'
+        }
+      }}
+    >
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.nameRow}>
@@ -131,8 +147,11 @@ const styles = {
   },
   capabilities: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: 4
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
+    gap: 4,
+    maskImage: 'linear-gradient(90deg, black 80%, transparent 100%)',
+    WebkitMaskImage: 'linear-gradient(90deg, black 80%, transparent 100%)'
   },
   cap: {
     fontSize: 10,

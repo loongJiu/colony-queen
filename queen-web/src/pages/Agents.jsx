@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAgentStore } from '../stores/agents'
 import { apiFetch } from '../api/client'
 import { StatusDot } from '../components/common/StatusDot'
@@ -24,6 +25,7 @@ const ROLE_OPTIONS = ['all', 'worker', 'scout', 'queen']
 const STATUS_OPTIONS = ['all', 'idle', 'busy', 'error', 'offline']
 
 export function Agents () {
+  const navigate = useNavigate()
   const agents = useAgentStore((s) => s.agents)
   const agentStats = useAgentStore((s) => s.agentStats)
 
@@ -167,6 +169,7 @@ export function Agents () {
               agent={agent}
               kicking={kicking === agent.agentId}
               onKick={handleKick}
+              onClick={() => navigate(`/agents/${agent.agentId}`)}
             />
           ))}
         </div>
@@ -201,7 +204,7 @@ function StatCard ({ icon: Icon, label, value, color, dim, active, onClick }) {
 
 /* ── Agent Detail Card ── */
 
-function AgentDetailCard ({ agent, kicking, onKick }) {
+function AgentDetailCard ({ agent, kicking, onKick, onClick }) {
   const {
     agentId,
     role = 'worker',
@@ -229,7 +232,8 @@ function AgentDetailCard ({ agent, kicking, onKick }) {
     <div
       style={{
         ...styles.card,
-        borderColor: isBusy ? STATUS_COLORS.busy + '44' : 'var(--color-border)'
+        borderColor: isBusy ? STATUS_COLORS.busy + '44' : 'var(--color-border)',
+        cursor: 'pointer'
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = statusColor + '66'
@@ -239,6 +243,7 @@ function AgentDetailCard ({ agent, kicking, onKick }) {
         e.currentTarget.style.borderColor = isBusy ? STATUS_COLORS.busy + '44' : 'var(--color-border)'
         e.currentTarget.style.boxShadow = 'none'
       }}
+      onClick={onClick}
     >
       {/* Card header */}
       <div style={styles.cardHeader}>
@@ -324,7 +329,7 @@ function AgentDetailCard ({ agent, kicking, onKick }) {
           {agentId}
         </span>
         <button
-          onClick={() => onKick(agentId, action)}
+          onClick={(e) => { e.stopPropagation(); onKick(agentId, action) }}
           disabled={kicking}
           style={{
             ...styles.actionBtn,
@@ -607,8 +612,11 @@ const styles = {
   },
   tagRow: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: 4
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
+    gap: 4,
+    maskImage: 'linear-gradient(90deg, black 80%, transparent 100%)',
+    WebkitMaskImage: 'linear-gradient(90deg, black 80%, transparent 100%)'
   },
   capTag: {
     fontSize: 10,

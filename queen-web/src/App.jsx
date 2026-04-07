@@ -4,6 +4,7 @@ import { Overview } from './pages/Overview'
 import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
 import { Agents } from './pages/Agents'
+import { AgentDetail } from './pages/AgentDetail'
 
 export default function App () {
   return (
@@ -13,6 +14,7 @@ export default function App () {
         <Route path='/tasks' element={<Tasks />} />
         <Route path='/tasks/:taskId' element={<TaskDetail />} />
         <Route path='/agents' element={<Agents />} />
+        <Route path='/agents/:agentId' element={<AgentDetail />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </Layout>

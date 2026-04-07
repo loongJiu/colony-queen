@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useAgentStore } from '../stores/agents'
 import { useTaskStore } from '../stores/tasks'
 import { AgentCard } from '../components/agent/AgentCard'
@@ -5,6 +6,7 @@ import { EmptyState } from '../components/common/EmptyState'
 import { Bot, Activity, BarChart3 } from 'lucide-react'
 
 export function Overview () {
+  const navigate = useNavigate()
   const agents = useAgentStore((s) => s.agents)
   const agentStats = useAgentStore((s) => s.agentStats)
   const taskStats = useTaskStore((s) => s.taskStats)
@@ -65,7 +67,7 @@ export function Overview () {
         ) : (
           <div style={styles.agentGrid}>
             {agents.map((agent) => (
-              <AgentCard key={agent.agentId} agent={agent} />
+              <AgentCard key={agent.agentId} agent={agent} onClick={() => navigate(`/agents/${agent.agentId}`)} />
             ))}
           </div>
         )}

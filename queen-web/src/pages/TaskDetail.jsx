@@ -16,27 +16,24 @@ export function TaskDetail () {
   const { taskId } = useParams()
   const navigate = useNavigate()
   const storeTask = useTaskStore((s) => s.tasks.find((t) => t.taskId === taskId))
-  const selectedTask = useTaskStore((s) => s.selectedTask)
   const logs = useTaskStore((s) => s.taskLogs[taskId] || [])
-  const setSelectedTask = useTaskStore((s) => s.setSelectedTask)
 
-  const [loading, setLoading] = useState(!storeTask)
+  const [task, setTask] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cancelling, setCancelling] = useState(false)
 
-  // Fetch full task details via API if not in store
+  // Fetch full task details via API (once per taskId)
   useEffect(() => {
-    if (storeTask?.results?.length > 0) {
-      setSelectedTask(storeTask)
-      setLoading(false)
-      return
-    }
     let cancelled = false
+    setTask(null)
+    setError(null)
     setLoading(true)
+
     apiFetch(`/task/${taskId}`)
       .then((data) => {
         if (!cancelled) {
-          setSelectedTask(data)
+          setTask(data)
           setLoading(false)
         }
       })
@@ -46,10 +43,14 @@ export function TaskDetail () {
           setLoading(false)
         }
       })
+
     return () => { cancelled = true }
   }, [taskId])
 
-  const task = selectedTask || storeTask
+  // Merge: API data as base, store data overlays for real-time updates
+  const effectiveTask = task
+    ? { ...task, ...(storeTask || {}) }
+    : storeTask
 
   const handleCancel = async () => {
     if (!window.confirm(`Cancel task ${taskId}?`)) return
@@ -73,7 +74,7 @@ export function TaskDetail () {
     )
   }
 
-  if (error || !task) {
+  if (error || !effectiveTask) {
     return (
       <div style={styles.loadingWrap}>
         <FailIcon size={24} style={{ color: 'var(--color-error)' }} />
@@ -85,12 +86,12 @@ export function TaskDetail () {
     )
   }
 
-  const status = task.status || 'pending'
+  const status = effectiveTask.status || 'pending'
   const statusColor = TASK_STATUS_COLORS[status] || '#6b7280'
   const isActive = status === 'running' || status === 'pending'
-  const steps = task.steps || []
-  const results = task.results || []
-  const duration = task.startedAt ? (task.finishedAt || Date.now()) - task.startedAt : null
+  const steps = effectiveTask.steps || []
+  const results = effectiveTask.results || []
+  const duration = effectiveTask.startedAt ? (effectiveTask.finishedAt || Date.now()) - effectiveTask.startedAt : null
   const completedSteps = results.filter((r) => r.status === 'success').length
   const totalSteps = steps.length || 1
 
@@ -126,17 +127,17 @@ export function TaskDetail () {
       </div>
 
       {/* Description */}
-      {task.request?.description && (
-        <p style={styles.description}>{task.request.description}</p>
+      {effectiveTask.request?.description && (
+        <p style={styles.description}>{effectiveTask.request.description}</p>
       )}
 
       {/* Meta cards */}
       <div style={styles.metaRow}>
         <MetaCard icon={<Clock size={14} />} label='Duration' value={duration != null ? formatDuration(duration) : '-'} />
         <MetaCard icon={<Layers size={14} />} label='Progress' value={`${completedSteps} / ${totalSteps} steps`} />
-        <MetaCard icon={<Network size={14} />} label='Strategy' value={task.strategy || 'single'} />
-        {task.planInfo?.model && (
-          <MetaCard icon={<Brain size={14} />} label='Planner' value={`${task.planInfo.model}${task.planInfo.degraded ? ' (fallback)' : ''}`} />
+        <MetaCard icon={<Network size={14} />} label='Strategy' value={effectiveTask.strategy || 'single'} />
+        {effectiveTask.planInfo?.model && (
+          <MetaCard icon={<Brain size={14} />} label='Planner' value={`${effectiveTask.planInfo.model}${effectiveTask.planInfo.degraded ? ' (fallback)' : ''}`} />
         )}
       </div>
 
@@ -208,7 +209,7 @@ export function TaskDetail () {
       )}
 
       {/* LLM Plan Info */}
-      {task.planInfo && (
+      {effectiveTask.planInfo && (
         <section style={styles.section}>
           <div style={styles.sectionTitle}>
             <Brain size={14} style={{ color: 'var(--color-text-muted)' }} />
@@ -217,21 +218,21 @@ export function TaskDetail () {
           </div>
           <div style={styles.planCard}>
             <div style={styles.planMetaRow}>
-              <span style={styles.planMetaItem}>Model: <strong>{task.planInfo.model || '-'}</strong></span>
-              <span style={styles.planMetaItem}>Duration: <strong>{task.planInfo.durationMs ? formatDuration(task.planInfo.durationMs) : '-'}</strong></span>
+              <span style={styles.planMetaItem}>Model: <strong>{effectiveTask.planInfo.model || '-'}</strong></span>
+              <span style={styles.planMetaItem}>Duration: <strong>{effectiveTask.planInfo.durationMs ? formatDuration(effectiveTask.planInfo.durationMs) : '-'}</strong></span>
               <span style={styles.planMetaItem}>
-                Fallback: <strong style={{ color: task.planInfo.degraded ? 'var(--color-error)' : 'var(--color-success)' }}>
-                  {task.planInfo.degraded ? 'Yes' : 'No'}
+                Fallback: <strong style={{ color: effectiveTask.planInfo.degraded ? 'var(--color-error)' : 'var(--color-success)' }}>
+                  {effectiveTask.planInfo.degraded ? 'Yes' : 'No'}
                 </strong>
               </span>
             </div>
-            {task.planInfo.summary && (
-              <p style={styles.planSummary}>{task.planInfo.summary}</p>
+            {effectiveTask.planInfo.summary && (
+              <p style={styles.planSummary}>{effectiveTask.planInfo.summary}</p>
             )}
-            {task.planInfo.steps?.length > 0 && (
+            {effectiveTask.planInfo.steps?.length > 0 && (
               <div style={styles.planSteps}>
                 <div style={styles.planStepsTitle}>Step Reasoning:</div>
-                {task.planInfo.steps.map((s, i) => (
+                {effectiveTask.planInfo.steps.map((s, i) => (
                   <div key={i} style={styles.planStepRow}>
                     <span style={styles.planStepId}>{s.stepId || `s${i + 1}`}</span>
                     <span style={styles.planStepText}>{s.reasoning || s.name || '-'}</span>
