@@ -385,4 +385,126 @@ describe('Hive', () => {
       expect(active[0].status).toBe('idle')
     })
   })
+
+  describe('getAllCapabilities', () => {
+    it('returns empty array for empty hive', () => {
+      const hive = new Hive()
+      expect(hive.getAllCapabilities()).toEqual([])
+    })
+
+    it('returns capabilities with agent counts', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['search', 'data_analysis'] }), 'sess_001')
+      hive.register(makeSpec({ capabilities: ['search'] }), 'sess_002')
+
+      const caps = hive.getAllCapabilities()
+      expect(caps).toHaveLength(2)
+
+      const search = caps.find(c => c.capability === 'search')
+      expect(search.agentCount).toBe(2)
+
+      const analysis = caps.find(c => c.capability === 'data_analysis')
+      expect(analysis.agentCount).toBe(1)
+    })
+
+    it('includes description from agent record', () => {
+      const hive = new Hive()
+      // AgentRecord.description 来自 spec.identity.description 或默认为 ''
+      hive.register({
+        ...makeSpec({ capabilities: ['search'] }),
+        identity: { role: 'worker', name: 'TestWorker', description: 'Search worker' }
+      }, 'sess_001')
+
+      const agent = hive.listAll()[0]
+      // description 字段可能不存在，取决于 createAgentRecord 的实现
+      // getAllCapabilities 取第一个 agent 的 description 字段
+      const caps = hive.getAllCapabilities()
+      expect(caps[0]).toEqual({
+        capability: 'search',
+        description: agent.description ?? '',
+        agentCount: 1
+      })
+    })
+  })
+
+  describe('hasCapability', () => {
+    it('returns true for registered capability', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['search'] }), 'sess_001')
+
+      expect(hive.hasCapability('search')).toBe(true)
+    })
+
+    it('returns false for unknown capability', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['search'] }), 'sess_001')
+
+      expect(hive.hasCapability('translation')).toBe(false)
+    })
+
+    it('returns false for empty hive', () => {
+      const hive = new Hive()
+      expect(hive.hasCapability('search')).toBe(false)
+    })
+  })
+
+  describe('findClosestCapability', () => {
+    it('returns exact match ignoring case', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['data_analysis'] }), 'sess_001')
+
+      expect(hive.findClosestCapability('Data_Analysis')).toBe('data_analysis')
+    })
+
+    it('returns substring match', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['code_generation'] }), 'sess_001')
+
+      expect(hive.findClosestCapability('code')).toBe('code_generation')
+    })
+
+    it('returns word overlap match', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['data_analysis'] }), 'sess_001')
+
+      expect(hive.findClosestCapability('data_visualization')).toBe('data_analysis')
+    })
+
+    it('returns null for empty hive', () => {
+      const hive = new Hive()
+      expect(hive.findClosestCapability('search')).toBeNull()
+    })
+
+    it('returns null when no match found', () => {
+      const hive = new Hive()
+      hive.register(makeSpec({ capabilities: ['code_generation'] }), 'sess_001')
+
+      expect(hive.findClosestCapability('translation')).toBeNull()
+    })
+  })
+
+  describe('getActiveCount', () => {
+    it('returns 0 for empty hive', () => {
+      const hive = new Hive()
+      expect(hive.getActiveCount()).toBe(0)
+    })
+
+    it('counts all agents when none are offline', () => {
+      const hive = new Hive()
+      hive.register(makeSpec(), 'sess_001')
+      hive.register(makeSpec(), 'sess_002')
+
+      expect(hive.getActiveCount()).toBe(2)
+    })
+
+    it('excludes offline agents', () => {
+      const hive = new Hive()
+      const a = hive.register(makeSpec(), 'sess_001')
+      hive.register(makeSpec(), 'sess_002')
+
+      hive.markOffline(a.agentId)
+
+      expect(hive.getActiveCount()).toBe(1)
+    })
+  })
 })

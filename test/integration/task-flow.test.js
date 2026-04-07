@@ -260,4 +260,40 @@ describe('Task Flow Integration', () => {
       }
     })
   })
+
+  describe('precheck integration', () => {
+    it('precheck returns feasible when agents are available', () => {
+      hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+      const check = planner.precheck('搜索相关文档')
+
+      expect(check.feasible).toBe(true)
+      expect(check.missingCapabilities).toEqual([])
+      expect(check.availableCapabilities).toEqual([{ capability: 'search', activeAgents: 1 }])
+    })
+
+    it('precheck returns not feasible when capability is missing', () => {
+      hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+      const check = planner.precheck('debugging')
+
+      expect(check.feasible).toBe(false)
+      expect(check.missingCapabilities).toContain('debugging')
+      expect(check.suggestions).toEqual([{
+        requested: 'debugging',
+        closest: null
+      }])
+    })
+
+    it('precheck returns not feasible when all agents are offline', () => {
+      const record = hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+      hive.markOffline(record.agentId)
+
+      const check = planner.precheck('搜索')
+
+      expect(check.feasible).toBe(false)
+      expect(check.missingCapabilities).toContain('search')
+      expect(check.totalActiveAgents).toBe(0)
+    })
+  })
 })

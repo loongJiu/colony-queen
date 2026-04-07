@@ -31,6 +31,7 @@
     "scheduler"
   ],
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "dotenv": "^17.4.0",
     "fastify": "^5.8.4",
     "zod": "^4.3.6"

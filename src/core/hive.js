@@ -266,6 +266,84 @@ export class Hive {
     return [...this.#agents.values()]
   }
 
+  /**
+   * 获取所有已注册的能力目录
+   *
+   * @returns {Array<{ capability: string, description: string, agentCount: number }>}
+   */
+  getAllCapabilities() {
+    const result = []
+    for (const [capability, agentIds] of this.#byCapability) {
+      const firstAgent = this.#agents.get(agentIds.values().next().value)
+      result.push({
+        capability,
+        description: firstAgent?.description ?? '',
+        agentCount: agentIds.size
+      })
+    }
+    return result
+  }
+
+  /**
+   * 检查某个能力是否已注册
+   *
+   * @param {string} capability
+   * @returns {boolean}
+   */
+  hasCapability(capability) {
+    return this.#byCapability.has(capability)
+  }
+
+  /**
+   * 查找与给定能力名称最接近的已注册能力
+   *
+   * 匹配优先级：精确匹配（忽略大小写）→ 子字符串匹配 → `_` 分割词重叠
+   *
+   * @param {string} capability
+   * @returns {string | null}
+   */
+  findClosestCapability(capability) {
+    const lower = capability.toLowerCase()
+    const allCaps = [...this.#byCapability.keys()]
+    if (allCaps.length === 0) return null
+
+    // 精确匹配（忽略大小写）
+    const exact = allCaps.find(c => c.toLowerCase() === lower)
+    if (exact) return exact
+
+    // 子字符串匹配
+    const substring = allCaps.find(c => c.toLowerCase().includes(lower) || lower.includes(c.toLowerCase()))
+    if (substring) return substring
+
+    // `_` 分割词重叠匹配
+    const queryWords = new Set(lower.split('_'))
+    let bestMatch = null
+    let bestScore = 0
+    for (const cap of allCaps) {
+      const capWords = new Set(cap.toLowerCase().split('_'))
+      let overlap = 0
+      for (const w of queryWords) {
+        if (capWords.has(w)) overlap++
+      }
+      if (overlap > bestScore) {
+        bestScore = overlap
+        bestMatch = cap
+      }
+    }
+
+    return bestMatch
+  }
+
+  /**
+   * 获取活跃（非 offline）Agent 数量
+   *
+   * @returns {number}
+   */
+  getActiveCount() {
+    const offlineCount = this.#byStatus.get('offline')?.size ?? 0
+    return this.#agents.size - offlineCount
+  }
+
   // ── 内部工具 ──────────────────────────────────
 
   /**

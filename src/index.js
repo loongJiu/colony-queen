@@ -5,6 +5,7 @@ import { Hive } from './core/hive.js'
 import { Waggle } from './core/waggle.js'
 import { Scheduler } from './core/scheduler.js'
 import { Planner } from './core/planner.js'
+import { LLMClient } from './services/llm-client.js'
 import { Executor } from './services/executor.js'
 import { HeartbeatMonitor } from './services/heartbeat.js'
 import { RetryService } from './services/retry.js'
@@ -31,8 +32,22 @@ app.decorate('waggle', waggle)
 const scheduler = new Scheduler({ hive })
 app.decorate('scheduler', scheduler)
 
+// 初始化 LLMClient
+const llmClient = new LLMClient({
+  provider: config.PLANNER_LLM_PROVIDER,
+  model: config.PLANNER_LLM_MODEL,
+  apiKey: config.PLANNER_LLM_API_KEY,
+  timeout: config.PLANNER_LLM_TIMEOUT_MS,
+  logger: app.log
+})
+
 // 初始化 Planner 任务规划器
-const planner = new Planner({ hive })
+const planner = new Planner({
+  hive,
+  llmClient,
+  fallbackEnabled: config.PLANNER_FALLBACK_ENABLED,
+  logger: app.log
+})
 app.decorate('planner', planner)
 
 // 初始化 RetryService 重试服务
@@ -44,7 +59,8 @@ const executor = new Executor({
   scheduler,
   retryService,
   logger: app.log,
-  defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000
+  defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000,
+  maxRetry: config.SCHEDULER_MAX_RETRY
 })
 app.decorate('executor', executor)
 

@@ -114,14 +114,23 @@ export class TaskRescheduler {
     this.#logger.info({ taskId: task.taskId, strategy: task.strategy }, 'Rescheduling task')
 
     try {
-      // 重置任务状态为 pending，保留原有步骤定义
+      // 保留已完成的步骤结果（断点续跑）
+      // 串行任务会从第一个未完成的步骤继续，而不是从头重跑
+      const completedResults = (task.results ?? []).filter(r => r.status === 'success')
+
       const resetTask = Object.freeze({
         ...task,
         status: 'pending',
-        results: [],
-        startedAt: undefined,
+        results: completedResults,
+        startedAt: task.startedAt ?? undefined,
         finishedAt: undefined
       })
+
+      this.#logger.info({
+        taskId: task.taskId,
+        completedSteps: completedResults.length,
+        totalSteps: task.steps?.length ?? 0
+      }, 'Task resuming with checkpoint')
 
       // 重新执行任务
       const result = await this.#executor.run(resetTask)

@@ -36,11 +36,17 @@ export class Executor {
    *   defaultTimeoutMs?: number
    * }} deps
    */
-  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000 }) {
+  /**
+   * @type {number} 最大重试次数
+   */
+  #maxRetry
+
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3 }) {
     this.#scheduler = scheduler
     this.#retryService = retryService
     this.#logger = logger
     this.#defaultTimeout = defaultTimeoutMs
+    this.#maxRetry = maxRetry
   }
 
   /**
@@ -53,8 +59,12 @@ export class Executor {
    * @returns {Promise<import('../models/task.js').TaskRecord>}
    */
   async run(task) {
+    this.#logger.info({ taskId: task.taskId, strategy: task.strategy, steps: task.steps.length }, 'task execution started')
+
     // 初始化：置为 running 状态，存入不可变副本
-    const running = this.#updateTask(task, { results: [], status: 'running', startedAt: Date.now() })
+    // 保留已有的成功结果（断点续跑支持）
+    const existingResults = (task.results ?? []).filter(r => r.status === 'success')
+    const running = this.#updateTask(task, { results: existingResults, status: 'running', startedAt: task.startedAt ?? Date.now() })
 
     const abortController = new AbortController()
     this.#abortControllers.set(task.taskId, abortController)
@@ -103,6 +113,7 @@ export class Executor {
     const abortController = this.#abortControllers.get(taskId)
     if (!abortController) return false
 
+    this.#logger.info({ taskId }, 'task cancel requested')
     abortController.abort()
 
     const task = this.#tasks.get(taskId)
@@ -149,11 +160,21 @@ export class Executor {
    */
   async #executeSerial(task, abortController) {
     const timeoutMs = this.#resolveTimeout(task)
-    const results = []
+    const log = this.#childLog({ taskId: task.taskId, strategy: 'serial' })
+
+    // 断点续跑：利用 task 中已有的成功结果，跳过已完成步骤
+    const existingResults = (task.results ?? []).filter(r => r.status === 'success')
+    const results = [...existingResults]
+    const firstPendingIndex = existingResults.length
     let current = task
 
-    for (let i = 0; i < task.steps.length; i++) {
+    if (firstPendingIndex > 0) {
+      log.info({ completedSteps: firstPendingIndex, totalSteps: task.steps.length }, 'resuming from checkpoint')
+    }
+
+    for (let i = firstPendingIndex; i < task.steps.length; i++) {
       if (abortController.signal.aborted) {
+        log.info({ stepIndex: i }, 'task cancelled by abort signal')
         return this.#updateTask(current, { results, status: 'cancelled', finishedAt: Date.now() })
       }
 
@@ -162,6 +183,8 @@ export class Executor {
         ? results[i - 1].output
         : undefined
       const stepInput = i === 0 ? task.request?.input : prevOutput
+
+      log.info({ stepIndex: i, capability: step.capability }, 'serial step start')
 
       // 执行步骤（支持重试）
       let stepResult = await this.#executeStep(
@@ -177,7 +200,12 @@ export class Executor {
         let retryCount = 0
         const excludeAgentIds = stepResult.agentId !== 'unknown' ? [stepResult.agentId] : []
 
-        while (retryCount < 3) { // 最大重试次数硬编码保护
+        while (retryCount < this.#maxRetry) {
+          log.warn(
+            { stepIndex: i, attempt: retryCount + 1, maxRetry: this.#maxRetry, errorCode: stepResult.error?.code },
+            'serial step failed, retrying'
+          )
+
           const { result: retryResult, shouldRetry } = await this.#retryService.executeWithRetry({
             fn: async (excludedIds) => {
               return await this.#executeStep(
@@ -205,16 +233,25 @@ export class Executor {
             excludeAgentIds.push(stepResult.agentId)
           }
         }
+
+        if (stepResult.status === 'failure') {
+          log.error({ stepIndex: i, retryCount, errorCode: stepResult.error?.code }, 'serial step failed after all retries')
+        }
       }
 
       results.push(stepResult)
       current = this.#updateTask(current, { results: [...results] })
+
+      if (stepResult.status === 'success') {
+        log.info({ stepIndex: i, durationMs: stepResult.finishedAt - stepResult.startedAt }, 'serial step completed')
+      }
 
       if (stepResult.status === 'failure') {
         return this.#updateTask(current, { results, status: 'failure', finishedAt: Date.now() })
       }
     }
 
+    log.info({ totalSteps: results.length, durationMs: Date.now() - task.startedAt }, 'serial task completed')
     return this.#updateTask(current, { results, status: 'success', finishedAt: Date.now() })
   }
 
@@ -230,6 +267,9 @@ export class Executor {
    */
   async #executeParallel(task, abortController) {
     const timeoutMs = this.#resolveTimeout(task)
+    const log = this.#childLog({ taskId: task.taskId, strategy: 'parallel' })
+
+    log.info({ stepCount: task.steps.length, timeoutMs }, 'parallel execution start')
 
     const promises = task.steps.map(step =>
       this.#executeStep(
@@ -261,6 +301,7 @@ export class Executor {
     else if (successes === 0) status = 'failure'
     else status = 'partial'
 
+    log.info({ successes, failures, status, durationMs: Date.now() - task.startedAt }, 'parallel execution completed')
     return this.#updateTask(task, { results, status, finishedAt: Date.now() })
   }
 
@@ -273,7 +314,10 @@ export class Executor {
    */
   async #executeSingle(task, abortController) {
     const timeoutMs = this.#resolveTimeout(task)
+    const log = this.#childLog({ taskId: task.taskId, strategy: 'single' })
     const step = task.steps[0]
+
+    log.info({ capability: step.capability }, 'single step start')
 
     const stepResult = await this.#executeStep(
       { ...step, input: step.input ?? task.request?.input },
@@ -284,6 +328,10 @@ export class Executor {
     )
 
     const results = [stepResult]
+    log.info(
+      { status: stepResult.status, durationMs: stepResult.finishedAt - stepResult.startedAt },
+      'single step completed'
+    )
     return this.#updateTask(task, { results, status: stepResult.status, finishedAt: Date.now() })
   }
 
@@ -329,6 +377,7 @@ export class Executor {
    */
   async #executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds = []) {
     const startedAt = Date.now()
+    const log = this.#childLog({ taskId, stepIndex: step.stepIndex, capability: step.capability })
 
     // 1. 选择 Agent（支持排除列表）
     let agent
@@ -339,6 +388,7 @@ export class Executor {
         agent = this.#scheduler.selectAgent(step.capability)
       }
     } catch (err) {
+      log.warn({ err: err.message }, 'no agent available for capability')
       return createStepResult({
         stepIndex: step.stepIndex,
         agentId: 'unknown',
@@ -351,6 +401,7 @@ export class Executor {
 
     // 外部已取消
     if (abortController.signal.aborted) {
+      log.info('step skipped: task already cancelled')
       return createStepResult({
         stepIndex: step.stepIndex,
         agentId: agent.agentId,
@@ -397,6 +448,8 @@ export class Executor {
 
     try {
       // 4. POST /bee/task
+      log.info({ agentId: agent.agentId, endpoint: agent.endpoint }, 'dispatching step to agent')
+
       const fetchPromise = fetch(`${agent.endpoint}/bee/task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -410,6 +463,7 @@ export class Executor {
       // 5a. 成功响应
       if (response.ok) {
         const body = await response.json()
+        log.info({ agentId: agent.agentId, status: body.status ?? 'success', durationMs: Date.now() - startedAt }, 'step completed')
         return createStepResult({
           stepIndex: step.stepIndex,
           agentId: agent.agentId,
@@ -424,6 +478,7 @@ export class Executor {
       }
 
       // 5b. 非 2xx 响应
+      log.warn({ agentId: agent.agentId, statusCode: response.status }, 'agent returned error')
       let errorInfo = { code: 'ERR_UNKNOWN', message: `HTTP ${response.status}`, retryable: false }
       try {
         const errBody = await response.json()
@@ -448,6 +503,8 @@ export class Executor {
       clearTimeout(timer)
 
       if (timedOut || err.name === 'AbortError') {
+        log.warn({ agentId: agent.agentId, timedOut, durationMs: Date.now() - startedAt }, 'step timed out or aborted')
+
         // 超时时 best-effort 通知 Agent
         if (timedOut) {
           try {
@@ -475,6 +532,7 @@ export class Executor {
       }
 
       // 网络错误
+      log.error({ agentId: agent.agentId, err: err.message }, 'step failed with network error')
       return createStepResult({
         stepIndex: step.stepIndex,
         agentId: agent.agentId,
@@ -489,6 +547,20 @@ export class Executor {
   }
 
   // ── 内部工具 ──────────────────────────────────
+
+  /**
+   * 创建子 logger（兼容没有 child 方法的 logger）
+   *
+   * @param {Object} bindings
+   * @returns {Object}
+   */
+  #childLog(bindings) {
+    if (typeof this.#logger.child === 'function') {
+      return this.#logger.child(bindings)
+    }
+    // fallback：直接返回原 logger（测试中传入的 console 等简单对象）
+    return this.#logger
+  }
 
   /**
    * 创建新的冻结任务对象并存入 #tasks（替换而非修改）

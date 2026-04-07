@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Planner, buildTasksFromPlan } from '../../src/core/planner.js'
 import { Hive } from '../../src/core/hive.js'
 
@@ -10,6 +10,13 @@ function makeSpec(overrides = {}) {
     model: overrides.model ?? {},
     tools: overrides.tools ?? [],
     skills: overrides.skills ?? []
+  }
+}
+
+function makeMockLLMClient(response, configured = true) {
+  return {
+    isConfigured: configured,
+    complete: vi.fn(async () => response)
   }
 }
 
@@ -170,5 +177,191 @@ describe('buildTasksFromPlan', () => {
 
     expect(task.request.expectedOutput).toBe('结果列表')
     expect(task.request.constraints).toEqual({ timeout: 30 })
+  })
+})
+
+describe('Planner.precheck', () => {
+  it('returns feasible when all capabilities have active agents', () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+    const planner = new Planner({ hive })
+
+    const check = planner.precheck('搜索相关资料')
+
+    expect(check.feasible).toBe(true)
+    expect(check.missingCapabilities).toEqual([])
+    expect(check.availableCapabilities).toEqual([{ capability: 'search', activeAgents: 1 }])
+    expect(check.totalActiveAgents).toBe(1)
+  })
+
+  it('returns not feasible when no agent has required capability', () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+    const planner = new Planner({ hive })
+
+    const check = planner.precheck('调试代码')
+
+    expect(check.feasible).toBe(false)
+    expect(check.missingCapabilities).toContain('debugging')
+  })
+
+  it('returns not feasible when capability agents are all offline', () => {
+    const hive = new Hive()
+    const record = hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+    hive.markOffline(record.agentId)
+    const planner = new Planner({ hive })
+
+    const check = planner.precheck('搜索')
+
+    expect(check.feasible).toBe(false)
+    expect(check.missingCapabilities).toContain('search')
+    expect(check.totalActiveAgents).toBe(0)
+  })
+
+  it('includes suggestions for missing capabilities', () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['data_analysis'] }), 'sess_1')
+    const planner = new Planner({ hive })
+
+    const check = planner.precheck('数据分析')
+
+    expect(check.feasible).toBe(true)
+    expect(check.suggestions).toEqual([])
+  })
+
+  it('returns feasible for descriptions that match no keywords (general)', () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+    const planner = new Planner({ hive })
+
+    // 不匹配任何关键词 → 无 required capabilities → feasible
+    const check = planner.precheck('做一些不相关的事情')
+
+    expect(check.feasible).toBe(true)
+    expect(check.missingCapabilities).toEqual([])
+  })
+})
+
+describe('Planner.analyzePlan with LLM', () => {
+  it('uses LLM plan when available and returns valid result', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = JSON.stringify({
+      strategy: 'single',
+      steps: [{ capability: 'search', description: '搜索相关资料' }]
+    })
+    const llmClient = makeMockLLMClient(llmResponse)
+    const planner = new Planner({ hive, llmClient, logger: { warn: vi.fn() } })
+
+    const plan = await planner.analyzePlan('搜索相关资料')
+
+    expect(plan.strategy).toBe('single')
+    expect(plan.steps[0].capability).toBe('search')
+    expect(llmClient.complete).toHaveBeenCalledTimes(1)
+  })
+
+  it('parses LLM response wrapped in markdown code blocks', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = '```json\n{"strategy":"single","steps":[{"capability":"search","description":"搜索"}]}\n```'
+    const llmClient = makeMockLLMClient(llmResponse)
+    const planner = new Planner({ hive, llmClient, logger: { warn: vi.fn() } })
+
+    const plan = await planner.analyzePlan('搜索')
+
+    expect(plan.strategy).toBe('single')
+    expect(plan.steps[0].capability).toBe('search')
+  })
+
+  it('falls back to rule-based when LLM returns invalid JSON', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmClient = makeMockLLMClient('not valid json at all')
+    const logger = { warn: vi.fn() }
+    const planner = new Planner({ hive, llmClient, logger })
+
+    const plan = await planner.analyzePlan('搜索相关资料')
+
+    // 降级到规则引擎
+    expect(plan.strategy).toBe('single')
+    expect(plan.steps[0].capability).toBe('search')
+    expect(logger.warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to rule-based when LLM references unknown capability', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = JSON.stringify({
+      strategy: 'single',
+      steps: [{ capability: 'translation', description: '翻译' }]
+    })
+    const llmClient = makeMockLLMClient(llmResponse)
+    const logger = { warn: vi.fn() }
+    const planner = new Planner({ hive, llmClient, logger })
+
+    const plan = await planner.analyzePlan('翻译文档')
+
+    // translation 不在 Hive 中，降级到规则引擎
+    expect(plan.strategy).toBe('single')
+    expect(logger.warn).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to rule-based when LLM throws network error', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmClient = {
+      isConfigured: true,
+      complete: vi.fn(async () => { throw new Error('Network timeout') })
+    }
+    const logger = { warn: vi.fn() }
+    const planner = new Planner({ hive, llmClient, logger })
+
+    const plan = await planner.analyzePlan('搜索资料')
+
+    expect(plan.strategy).toBe('single')
+    expect(plan.steps[0].capability).toBe('search')
+  })
+
+  it('throws when fallbackEnabled is false and LLM fails', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmClient = {
+      isConfigured: true,
+      complete: vi.fn(async () => { throw new Error('API error') })
+    }
+    const logger = { warn: vi.fn() }
+    const planner = new Planner({ hive, llmClient, fallbackEnabled: false, logger })
+
+    await expect(planner.analyzePlan('搜索')).rejects.toThrow('API error')
+  })
+
+  it('skips LLM when not configured', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmClient = makeMockLLMClient('', false)
+    const planner = new Planner({ hive, llmClient })
+
+    const plan = await planner.analyzePlan('搜索资料')
+
+    expect(plan.strategy).toBe('single')
+    expect(llmClient.complete).not.toHaveBeenCalled()
+  })
+
+  it('works without llmClient at all (backward compatible)', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+    const planner = new Planner({ hive })
+
+    const plan = await planner.analyzePlan('搜索资料')
+
+    expect(plan.strategy).toBe('single')
+    expect(plan.steps[0].capability).toBe('search')
   })
 })

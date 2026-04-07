@@ -20,7 +20,13 @@ const schema = z.object({
   TASK_QUEUE_MAX_SIZE: z.coerce.number().default(1000),
 
   WAGGLE_DEFAULT_TTL_MS: z.coerce.number().default(30000),
-  WAGGLE_QUEUE_MAX_SIZE: z.coerce.number().default(1000)
+  WAGGLE_QUEUE_MAX_SIZE: z.coerce.number().default(1000),
+
+  PLANNER_LLM_PROVIDER: z.enum(['glm', 'anthropic', 'openai']).default('glm'),
+  PLANNER_LLM_MODEL: z.string().default('glm-4'),
+  PLANNER_LLM_API_KEY: z.string().default(''),
+  PLANNER_LLM_TIMEOUT_MS: z.coerce.number().default(15000),
+  PLANNER_FALLBACK_ENABLED: z.coerce.boolean().default(true)
 })
 
 /** @type {z.infer<typeof schema>} */
