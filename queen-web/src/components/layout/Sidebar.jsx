@@ -68,7 +68,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '20px 20px 24px',
+    padding: '12px 20px 10px',
     borderBottom: '1px solid var(--color-border)'
   },
   logoIcon: {

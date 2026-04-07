@@ -10,6 +10,7 @@ import {
   ListTodo, Clock, CheckCircle2, XCircle, Loader2,
   Search, Filter, Eye, X, ChevronDown, ArrowUpDown
 } from 'lucide-react'
+import { TaskSubmit } from '../components/task/TaskSubmit'
 
 const STAT_CONFIGS = [
   { key: 'pending', label: 'Pending', icon: Clock, color: 'var(--color-info)', dim: 'var(--color-info-dim)' },
@@ -100,6 +101,9 @@ export function Tasks () {
           />
         ))}
       </div>
+
+      {/* Quick submit */}
+      <TaskSubmit />
 
       {/* Toolbar */}
       <div style={styles.toolbar}>
