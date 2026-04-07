@@ -11,7 +11,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
 const PROVIDER_BASE_URLS = {
-  glm: 'https://open.bigmodel.cn/api/paas/v4'
+  glm: 'https://open.bigmodel.cn/api/anthropic'
 }
 
 export class LLMClient {

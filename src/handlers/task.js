@@ -101,21 +101,8 @@ export default function taskRoutes(app, options) {
 
     reply.status(200).send({
       type: 'task.status',
-      task_id: task.taskId,
-      status: task.status,
-      strategy: task.strategy,
-      results: (task.results ?? []).map(r => ({
-        step_index: r.stepIndex,
-        agent_id: r.agentId,
-        status: r.status,
-        ...(r.output !== undefined && { output: r.output }),
-        ...(r.summary != null && { summary: r.summary }),
-        ...(r.error != null && { error: r.error })
-      })),
-      ...(finalOutput !== null && { final_output: finalOutput }),
-      created_at: new Date(task.createdAt).toISOString(),
-      ...(task.startedAt != null && { started_at: new Date(task.startedAt).toISOString() }),
-      ...(task.finishedAt != null && { finished_at: new Date(task.finishedAt).toISOString() })
+      ...task,
+      ...(finalOutput !== null && { finalOutput })
     })
   })
 

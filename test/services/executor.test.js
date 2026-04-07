@@ -11,7 +11,8 @@ function makeSpec(overrides = {}) {
     capabilities: overrides.capabilities ?? ['search'],
     model: overrides.model ?? {},
     tools: overrides.tools ?? [],
-    skills: overrides.skills ?? []
+    skills: overrides.skills ?? [],
+    ...(overrides.constraints != null && { constraints: overrides.constraints })
   }
 }
 
@@ -284,7 +285,8 @@ describe('Executor', () => {
     it('handles timeout and sends cancel to worker', async () => {
       hive.register(makeSpec({
         capabilities: ['search'],
-        endpoint: 'http://worker-slow:4001'
+        endpoint: 'http://worker-slow:4001',
+        constraints: { timeout_default: 0.1 }
       }), 'sess_1')
 
       const executorShort = new Executor({ scheduler, defaultTimeoutMs: 100 })

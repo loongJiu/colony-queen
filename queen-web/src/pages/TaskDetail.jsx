@@ -185,9 +185,6 @@ export function TaskDetail () {
                       <StatusDot status={stepStatus} size='sm' pulse={stepStatus === 'running'} />
                       {step.name || step.description || `Step ${i + 1}`}
                     </span>
-                    <span style={{ ...styles.stepStatus, color: stepColor }}>
-                      {STATUS_LABELS[stepStatus] || stepStatus}
-                    </span>
                   </div>
                   <div style={styles.stepMeta}>
                     <span style={styles.stepCapability}>{step.capability}</span>
@@ -197,13 +194,36 @@ export function TaskDetail () {
                     {stepDuration != null && (
                       <span style={styles.stepDuration}>{formatDuration(stepDuration)}</span>
                     )}
+                    <span style={{ ...styles.stepStatus, color: stepColor, marginLeft: 'auto' }}>
+                      {STATUS_LABELS[stepStatus] || stepStatus}
+                    </span>
                   </div>
                   {step.reasoning && (
                     <p style={styles.stepReasoning}>{step.reasoning}</p>
                   )}
+                  {result?.error && (
+                    <div style={styles.errorBlock}>
+                      <span style={styles.errorCode}>{result.error.code}</span>
+                      <span style={styles.errorMessage}>{result.error.message}</span>
+                    </div>
+                  )}
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Final output */}
+      {effectiveTask.finalOutput && (
+        <section style={styles.section}>
+          <div style={styles.sectionTitle}>
+            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <span style={styles.sectionTitleText}>Final Output</span>
+            <div style={styles.sectionLine} />
+          </div>
+          <div style={styles.outputBlock}>
+            {renderOutput(effectiveTask.finalOutput)}
           </div>
         </section>
       )}
@@ -245,6 +265,15 @@ export function TaskDetail () {
       )}
     </div>
   )
+}
+
+function renderOutput (output) {
+  if (output == null) return null
+  if (typeof output === 'string') return <pre style={styles.outputPre}>{output}</pre>
+  if (typeof output === 'object' && output.result != null) {
+    return <pre style={styles.outputPre}>{typeof output.result === 'string' ? output.result : JSON.stringify(output.result, null, 2)}</pre>
+  }
+  return <pre style={styles.outputPre}>{JSON.stringify(output, null, 2)}</pre>
 }
 
 function MetaCard ({ icon, label, value }) {
@@ -418,16 +447,20 @@ const styles = {
   stepCardHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8
+    marginBottom: 8,
+    overflow: 'hidden'
   },
   stepName: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
     gap: 8,
     fontSize: 13,
     fontWeight: 600,
-    color: 'var(--color-text)'
+    color: 'var(--color-text)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    minWidth: 0
   },
   stepStatus: {
     fontSize: 11,
@@ -463,6 +496,50 @@ const styles = {
     marginTop: 8,
     lineHeight: 1.5,
     fontStyle: 'italic'
+  },
+
+  /* Output */
+  outputBlock: {
+    marginTop: 10,
+    padding: 12,
+    background: 'var(--color-surface-hover)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)'
+  },
+  outputPre: {
+    margin: 0,
+    fontSize: 13,
+    fontFamily: "'IBM Plex Mono', monospace",
+    lineHeight: 1.6,
+    color: 'var(--color-text)',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word'
+  },
+
+  /* Error */
+  errorBlock: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    padding: '8px 12px',
+    background: 'var(--color-error-dim)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-error)33'
+  },
+  errorCode: {
+    fontSize: 11,
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontWeight: 600,
+    color: 'var(--color-error)',
+    padding: '1px 6px',
+    background: 'var(--color-error)15',
+    borderRadius: 3
+  },
+  errorMessage: {
+    fontSize: 12,
+    color: 'var(--color-error)',
+    lineHeight: 1.4
   },
 
   /* Plan info */

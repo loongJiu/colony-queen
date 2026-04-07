@@ -439,6 +439,11 @@ export class Executor {
       })
     }
 
+    // 解析步骤级超时（优先使用 agent 的 timeout_default）
+    const task = this.#tasks.get(taskId)
+    const effectiveTimeoutMs = this.#resolveStepTimeout(task, agent, timeoutMs)
+    log.info({ timeoutMs: effectiveTimeoutMs, source: task?.request?.constraints?.timeout ? 'task' : agent.constraints?.timeout_default ? 'agent' : 'default' }, 'timeout resolved')
+
     // 2. 构建 task_assign payload（type 与 message.js VALID_TYPES 一致）
     const payload = {
       type: 'task_assign',
@@ -446,9 +451,10 @@ export class Executor {
         task_id: taskId,
         name: step.description,
         description: step.description,
+        capability: step.capability,
         input: step.input,
         expected_output: null,
-        constraints: { timeout: Math.ceil(timeoutMs / 1000) }
+        constraints: { timeout: Math.ceil(effectiveTimeoutMs / 1000) }
       },
       context: {
         conversation_id: conversationId,
@@ -466,8 +472,8 @@ export class Executor {
       timer = setTimeout(() => {
         timedOut = true
         stepAbortController.abort()
-        reject(new Error(`Step ${step.stepIndex} timed out after ${timeoutMs}ms`))
-      }, timeoutMs)
+        reject(new Error(`Step ${step.stepIndex} timed out after ${effectiveTimeoutMs}ms`))
+      }, effectiveTimeoutMs)
     })
 
     const onExternalAbort = () => stepAbortController.abort()
@@ -631,5 +637,24 @@ export class Executor {
   #resolveTimeout(task) {
     const constraintSec = task.request?.constraints?.timeout
     return constraintSec != null ? constraintSec * 1000 : this.#defaultTimeout
+  }
+
+  /**
+   * 解析步骤级超时（毫秒）
+   *
+   * 优先级：task.request.constraints.timeout > agent.constraints.timeout_default > taskTimeoutMs
+   *
+   * @param {import('../models/task.js').TaskRecord} task
+   * @param {import('../models/agent.js').AgentRecord} agent
+   * @param {number} taskTimeoutMs - 任务级超时（来自 #resolveTimeout，可能是 defaultTimeoutMs）
+   * @returns {number}
+   */
+  #resolveStepTimeout(task, agent, taskTimeoutMs) {
+    const constraintSec = task?.request?.constraints?.timeout
+    if (constraintSec != null) return constraintSec * 1000
+    // 仅当任务未显式指定 timeout 时，使用 agent 的 timeout_default
+    return agent.constraints?.timeout_default != null
+      ? agent.constraints.timeout_default * 1000
+      : taskTimeoutMs
   }
 }
