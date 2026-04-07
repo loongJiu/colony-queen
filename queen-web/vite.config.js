@@ -6,8 +6,9 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/admin': 'http://localhost:8001',
-      '/health': 'http://localhost:8001'
+      '/admin': 'http://127.0.0.1:9009',
+      '/health': 'http://127.0.0.1:9009',
+      '/task': 'http://127.0.0.1:9009'
     }
   }
 })

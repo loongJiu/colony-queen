@@ -15,5 +15,7 @@ export async function apiFetch (path, options = {}) {
     throw new Error(body.error?.message || `HTTP ${res.status}`)
   }
 
+  if (res.status === 204) return null
+
   return res.json()
 }

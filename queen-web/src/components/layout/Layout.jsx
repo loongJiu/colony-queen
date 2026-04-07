@@ -22,7 +22,8 @@ export function Layout ({ children }) {
         taskStore.setSnapshot(data)
       },
       onAgentUpdated: (data) => agentStore.updateAgent(data),
-      onTaskUpdated: (data) => taskStore.updateTask(data)
+      onTaskUpdated: (data) => taskStore.updateTask(data),
+      onTaskLog: (data) => taskStore.addLog(data)
     })
 
     return () => conn.destroy()

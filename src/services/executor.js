@@ -65,6 +65,8 @@ export class Executor {
   async run(task) {
     this.#logger.info({ taskId: task.taskId, strategy: task.strategy, steps: task.steps.length }, 'task execution started')
 
+    this.#emitLog(task.taskId, 'executor', `任务开始执行，策略: ${task.strategy}，共 ${task.steps.length} 步`)
+
     // 初始化：置为 running 状态，存入不可变副本
     // 保留已有的成功结果（断点续跑支持）
     const existingResults = (task.results ?? []).filter(r => r.status === 'success')
@@ -118,6 +120,7 @@ export class Executor {
     if (!abortController) return false
 
     this.#logger.info({ taskId }, 'task cancel requested')
+    this.#emitLog(taskId, 'executor', '任务取消请求已收到')
     abortController.abort()
 
     const task = this.#tasks.get(taskId)
@@ -174,6 +177,7 @@ export class Executor {
 
     if (firstPendingIndex > 0) {
       log.info({ completedSteps: firstPendingIndex, totalSteps: task.steps.length }, 'resuming from checkpoint')
+      this.#emitLog(task.taskId, 'executor', `从断点续跑，跳过已完成的 ${firstPendingIndex} 步`)
     }
 
     for (let i = firstPendingIndex; i < task.steps.length; i++) {
@@ -189,6 +193,7 @@ export class Executor {
       const stepInput = i === 0 ? task.request?.input : prevOutput
 
       log.info({ stepIndex: i, capability: step.capability }, 'serial step start')
+      this.#emitLog(task.taskId, 'executor', `串行步骤 ${i + 1}/${task.steps.length} 开始，能力: ${step.capability}`, { stepIndex: i, capability: step.capability })
 
       // 执行步骤（支持重试）
       let stepResult = await this.#executeStep(
@@ -248,14 +253,23 @@ export class Executor {
 
       if (stepResult.status === 'success') {
         log.info({ stepIndex: i, durationMs: stepResult.finishedAt - stepResult.startedAt }, 'serial step completed')
+        this.#emitLog(task.taskId, 'executor',
+          `步骤 ${i + 1}/${task.steps.length} 完成，耗时: ${((stepResult.finishedAt - stepResult.startedAt) / 1000).toFixed(1)}s`,
+          { stepIndex: i, status: 'success', durationMs: stepResult.finishedAt - stepResult.startedAt }
+        )
       }
 
       if (stepResult.status === 'failure') {
+        this.#emitLog(task.taskId, 'executor',
+          `步骤 ${i + 1} 失败: ${stepResult.error?.message ?? 'unknown error'}`,
+          { stepIndex: i, status: 'failure', error: stepResult.error }
+        )
         return this.#updateTask(current, { results, status: 'failure', finishedAt: Date.now() })
       }
     }
 
     log.info({ totalSteps: results.length, durationMs: Date.now() - task.startedAt }, 'serial task completed')
+    this.#emitLog(task.taskId, 'executor', `串行任务全部完成，共 ${results.length} 步，总耗时: ${((Date.now() - task.startedAt) / 1000).toFixed(1)}s`)
     return this.#updateTask(current, { results, status: 'success', finishedAt: Date.now() })
   }
 
@@ -274,6 +288,7 @@ export class Executor {
     const log = this.#childLog({ taskId: task.taskId, strategy: 'parallel' })
 
     log.info({ stepCount: task.steps.length, timeoutMs }, 'parallel execution start')
+    this.#emitLog(task.taskId, 'executor', `并行执行开始，共 ${task.steps.length} 步`)
 
     const promises = task.steps.map(step =>
       this.#executeStep(
@@ -306,6 +321,9 @@ export class Executor {
     else status = 'partial'
 
     log.info({ successes, failures, status, durationMs: Date.now() - task.startedAt }, 'parallel execution completed')
+    this.#emitLog(task.taskId, 'executor',
+      `并行执行完成，成功: ${successes}，失败: ${failures}，状态: ${status}，耗时: ${((Date.now() - task.startedAt) / 1000).toFixed(1)}s`
+    )
     return this.#updateTask(task, { results, status, finishedAt: Date.now() })
   }
 
@@ -322,6 +340,7 @@ export class Executor {
     const step = task.steps[0]
 
     log.info({ capability: step.capability }, 'single step start')
+    this.#emitLog(task.taskId, 'executor', `步骤开始，能力: ${step.capability}`, { stepIndex: step.stepIndex })
 
     const stepResult = await this.#executeStep(
       { ...step, input: step.input ?? task.request?.input },
@@ -335,6 +354,10 @@ export class Executor {
     log.info(
       { status: stepResult.status, durationMs: stepResult.finishedAt - stepResult.startedAt },
       'single step completed'
+    )
+    this.#emitLog(task.taskId, 'executor',
+      `步骤完成，状态: ${stepResult.status}，耗时: ${((stepResult.finishedAt - stepResult.startedAt) / 1000).toFixed(1)}s`,
+      { stepIndex: step.stepIndex, status: stepResult.status }
     )
     return this.#updateTask(task, { results, status: stepResult.status, finishedAt: Date.now() })
   }
@@ -453,6 +476,7 @@ export class Executor {
     try {
       // 4. POST /bee/task
       log.info({ agentId: agent.agentId, endpoint: agent.endpoint }, 'dispatching step to agent')
+      this.#emitLog(taskId, 'executor', `步骤调度 → ${agent.agentId}`, { agentId: agent.agentId, stepIndex: step.stepIndex })
 
       const fetchPromise = fetch(`${agent.endpoint}/bee/task`, {
         method: 'POST',
@@ -551,6 +575,24 @@ export class Executor {
   }
 
   // ── 内部工具 ──────────────────────────────────
+
+  /**
+   * 发射 task.log 事件（通过 EventBus 推送到 SSE）
+   *
+   * @param {string} taskId
+   * @param {string} source - 日志来源（planner / executor / agent）
+   * @param {string} message - 日志消息
+   * @param {Object} [extra] - 额外字段
+   */
+  #emitLog(taskId, source, message, extra = {}) {
+    this.#eventBus?.emit('task.log', {
+      taskId,
+      source,
+      message,
+      timestamp: Date.now(),
+      ...extra
+    })
+  }
 
   /**
    * 创建子 logger（兼容没有 child 方法的 logger）

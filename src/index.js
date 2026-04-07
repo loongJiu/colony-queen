@@ -73,6 +73,9 @@ app.decorate('executor', executor)
 
 // 统一错误处理
 app.setErrorHandler((err, request, reply) => {
+  // SSE 连接断开时 err 可能为空，静默忽略
+  if (!err) return
+
   if (err instanceof BeeError) {
     reply.status(err.statusCode).send(err.toJSON(request.id))
     return
@@ -88,6 +91,11 @@ app.setErrorHandler((err, request, reply) => {
         retryable: false
       }
     })
+    return
+  }
+
+  // SSE 断开导致的连接错误，静默忽略
+  if (err.code === 'ERR_HTTP_HEADERS_SENT' || err.code === 'ECONNRESET') {
     return
   }
 
