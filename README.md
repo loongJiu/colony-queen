@@ -214,4 +214,4 @@ cd queen-web && npm test  # 前端测试
 
 ## License
 
-[AGPL-3.0](LICENSE) &copy; Zhang Xu
+[AGPL-3.0](LICENSE)
