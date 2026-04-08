@@ -82,11 +82,15 @@ export class Waggle {
   /** @type {number} */
   #maxSize
 
+  /** @type {{ warn?: Function } | null} */
+  #logger
+
   /**
-   * @param {{ maxSize?: number }} [options]
+   * @param {{ maxSize?: number, logger?: object }} [options]
    */
-  constructor({ maxSize = 1000 } = {}) {
+  constructor({ maxSize = 1000, logger = null } = {}) {
     this.#maxSize = maxSize
+    this.#logger = logger
   }
 
   /**
@@ -144,7 +148,7 @@ export class Waggle {
         if (!this.#isExpired(msg)) {
           const currentHandlers = [...this.#handlers.get(agentId) ?? []]
           for (const h of currentHandlers) {
-            try { h(msg) } catch { /* handler 错误隔离 */ }
+            try { h(msg) } catch (err) { this.#logger?.warn?.({ agentId, err }, "Waggle subscribe handler error") }
           }
         }
       }
@@ -272,7 +276,7 @@ export class Waggle {
     // 记录 handler 错误但不传播
     for (const r of results) {
       if (r.status === 'rejected') {
-        // 静默处理，不中断其他 handler
+        this.#logger?.warn?.({ agentId, err: r.reason }, 'Waggle handler error')
       }
     }
   }

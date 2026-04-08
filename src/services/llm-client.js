@@ -10,10 +10,6 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 
-const PROVIDER_BASE_URLS = {
-  glm: 'https://open.bigmodel.cn/api/anthropic'
-}
-
 export class LLMClient {
   #provider
   #model
@@ -22,6 +18,8 @@ export class LLMClient {
   #logger
   /** @type {Anthropic | null} */
   #client
+  /** @type {string} */
+  #openaiBaseUrl
 
   /**
    * @param {{
@@ -29,18 +27,22 @@ export class LLMClient {
    *   model: string,
    *   apiKey: string,
    *   timeout: number,
-   *   logger?: object
+   *   logger?: object,
+   *   glmBaseUrl?: string,
+   *   anthropicBaseUrl?: string,
+   *   openaiBaseUrl?: string
    * }} config
    */
-  constructor({ provider, model, apiKey, timeout, logger = console }) {
+  constructor({ provider, model, apiKey, timeout, logger = console, glmBaseUrl = '', anthropicBaseUrl = '', openaiBaseUrl = '' }) {
     this.#provider = provider
     this.#model = model
     this.#apiKey = apiKey
     this.#timeout = timeout
     this.#logger = logger
+    this.#openaiBaseUrl = openaiBaseUrl
 
     if (apiKey && (provider === 'glm' || provider === 'anthropic')) {
-      const baseURL = PROVIDER_BASE_URLS[provider]
+      const baseURL = provider === 'glm' ? glmBaseUrl : (anthropicBaseUrl || undefined)
       this.#client = new Anthropic({
         apiKey,
         ...(baseURL && { baseURL })
@@ -117,7 +119,7 @@ export class LLMClient {
     }
     messages.push({ role: 'user', content: prompt })
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(this.#openaiBaseUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

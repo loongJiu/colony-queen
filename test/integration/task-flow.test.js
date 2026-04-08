@@ -63,12 +63,12 @@ describe('Task Flow Integration', () => {
 
       try {
         // 1. Plan
-        const plan = await planner.analyzePlan('搜索相关文档', { input: { q: 'test' } })
+        const plan = await planner.analyzePlan('搜索相关信息', { input: { q: 'test' } })
         expect(plan.strategy).toBe('single')
 
         // 2. Build
         const task = buildTasksFromPlan(plan, {
-          description: '搜索相关文档',
+          description: '搜索相关信息',
           input: { q: 'test' }
         })
 
@@ -265,7 +265,7 @@ describe('Task Flow Integration', () => {
     it('precheck returns feasible when agents are available', () => {
       hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
 
-      const check = planner.precheck('搜索相关文档')
+      const check = planner.precheck('搜索相关信息')
 
       expect(check.feasible).toBe(true)
       expect(check.missingCapabilities).toEqual([])

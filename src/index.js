@@ -31,7 +31,7 @@ const hive = new Hive()
 app.decorate('hive', hive)
 
 // 初始化 Waggle 消息总线
-const waggle = new Waggle({ maxSize: config.WAGGLE_QUEUE_MAX_SIZE })
+const waggle = new Waggle({ maxSize: config.WAGGLE_QUEUE_MAX_SIZE, logger: app.log })
 app.decorate('waggle', waggle)
 
 // 初始化 Scheduler 调度器
@@ -44,7 +44,10 @@ const llmClient = new LLMClient({
   model: config.PLANNER_LLM_MODEL,
   apiKey: config.PLANNER_LLM_API_KEY,
   timeout: config.PLANNER_LLM_TIMEOUT_MS,
-  logger: app.log
+  logger: app.log,
+  glmBaseUrl: config.LLM_GLM_BASE_URL,
+  anthropicBaseUrl: config.LLM_ANTHROPIC_BASE_URL,
+  openaiBaseUrl: config.LLM_OPENAI_BASE_URL
 })
 
 // 初始化 Planner 任务规划器
@@ -155,7 +158,35 @@ app.addHook('onClose', async () => {
   // 停止任务重调度器
   rescheduler.stop()
   app.log.info('TaskRescheduler stopped')
+  // 停止心跳监控
+  heartbeatMonitor.stop()
+  app.log.info('HeartbeatMonitor stopped')
 })
+
+// 全局未处理异常
+process.on('unhandledRejection', (reason) => {
+  app.log.error({ err: reason }, 'Unhandled rejection')
+})
+
+process.on('uncaughtException', (err) => {
+  app.log.fatal({ err }, 'Uncaught exception — shutting down')
+  app.close().then(() => process.exit(1)).catch(() => process.exit(1))
+})
+
+// 优雅关机
+function gracefulShutdown(signal) {
+  app.log.info({ signal }, 'Received shutdown signal, closing server...')
+  app.close().then(() => {
+    app.log.info('Server closed gracefully')
+    process.exit(0)
+  }).catch((err) => {
+    app.log.error({ err }, 'Error during graceful shutdown')
+    process.exit(1)
+  })
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
 // Start server
 try {

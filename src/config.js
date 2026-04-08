@@ -26,7 +26,11 @@ const schema = z.object({
   PLANNER_LLM_MODEL: z.string().default('glm-4'),
   PLANNER_LLM_API_KEY: z.string().default(''),
   PLANNER_LLM_TIMEOUT_MS: z.coerce.number().default(15000),
-  PLANNER_FALLBACK_ENABLED: z.coerce.boolean().default(true)
+  PLANNER_FALLBACK_ENABLED: z.coerce.boolean().default(true),
+
+  LLM_GLM_BASE_URL: z.string().default('https://open.bigmodel.cn/api/anthropic'),
+  LLM_ANTHROPIC_BASE_URL: z.string().default(''),
+  LLM_OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1/chat/completions')
 })
 
 /** @type {z.infer<typeof schema>} */

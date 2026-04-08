@@ -19,6 +19,9 @@ vi.mock('@anthropic-ai/sdk', () => {
 import { LLMClient } from '../../src/services/llm-client.js'
 import Anthropic from '@anthropic-ai/sdk'
 
+const GLM_BASE_URL = 'https://open.bigmodel.cn/api/anthropic'
+const OPENAI_BASE_URL = 'https://api.openai.com/v1/chat/completions'
+
 function makeConfig(overrides = {}) {
   return {
     provider: 'glm',
@@ -26,6 +29,9 @@ function makeConfig(overrides = {}) {
     apiKey: 'test-api-key',
     timeout: 15000,
     logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn() },
+    glmBaseUrl: GLM_BASE_URL,
+    anthropicBaseUrl: '',
+    openaiBaseUrl: OPENAI_BASE_URL,
     ...overrides
   }
 }
@@ -36,25 +42,32 @@ describe('LLMClient', () => {
   })
 
   describe('constructor', () => {
-    it('initializes with glm provider', () => {
+    it('initializes with glm provider using glmBaseUrl', () => {
       const client = new LLMClient(makeConfig())
       expect(client.isConfigured).toBe(true)
       expect(Anthropic).toHaveBeenCalledWith({
         apiKey: 'test-api-key',
-        baseURL: 'https://open.bigmodel.cn/api/paas/v4'
+        baseURL: GLM_BASE_URL
       })
     })
 
-    it('initializes with anthropic provider without baseURL', () => {
-      const client = new LLMClient(makeConfig({ provider: 'anthropic' }))
+    it('initializes with anthropic provider without baseURL when empty', () => {
+      const client = new LLMClient(makeConfig({ provider: 'anthropic', anthropicBaseUrl: '' }))
       expect(Anthropic).toHaveBeenCalledWith({
         apiKey: 'test-api-key'
       })
     })
 
+    it('initializes with anthropic provider with custom baseURL', () => {
+      const client = new LLMClient(makeConfig({ provider: 'anthropic', anthropicBaseUrl: 'https://custom.api.com' }))
+      expect(Anthropic).toHaveBeenCalledWith({
+        apiKey: 'test-api-key',
+        baseURL: 'https://custom.api.com'
+      })
+    })
+
     it('does not create Anthropic instance for openai provider', () => {
       const client = new LLMClient(makeConfig({ provider: 'openai' }))
-      // Anthropic constructor should not be called for openai
       expect(client.isConfigured).toBe(true)
     })
 
@@ -92,7 +105,7 @@ describe('LLMClient', () => {
       )
     })
 
-    it('calls fetch for openai provider', async () => {
+    it('calls fetch with openaiBaseUrl for openai provider', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -108,7 +121,7 @@ describe('LLMClient', () => {
 
         expect(result).toBe('response text')
         expect(mockFetch).toHaveBeenCalledWith(
-          'https://api.openai.com/v1/chat/completions',
+          OPENAI_BASE_URL,
           expect.objectContaining({
             method: 'POST',
             headers: expect.objectContaining({
