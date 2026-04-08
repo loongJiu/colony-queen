@@ -16,12 +16,34 @@ const KEYWORD_CAPABILITY_MAP = {
   代码: 'code_generation',
   生成: 'code_generation',
   code: 'code_generation',
+  写: 'code_generation',
+  编写: 'code_generation',
+  实现: 'code_generation',
+  开发: 'code_generation',
+  程序: 'code_generation',
+  函数: 'code_generation',
+  code_review: 'code_review',
+  审查: 'code_review',
+  review: 'code_review',
+  代码审查: 'code_review',
   data_analysis: 'data_analysis',
   分析: 'data_analysis',
   data: 'data_analysis',
+  数据: 'data_analysis',
   debugging: 'debugging',
   调试: 'debugging',
   debug: 'debugging',
+  修复: 'debugging',
+  bug: 'debugging',
+  text_writing: 'text_writing',
+  文本: 'text_writing',
+  写作: 'text_writing',
+  文档: 'text_writing',
+  文章: 'text_writing',
+  planning: 'planning',
+  规划: 'planning',
+  计划: 'planning',
+  方案: 'planning',
   visualization: 'visualization',
   可视化: 'visualization',
   chart: 'visualization'
@@ -147,9 +169,10 @@ export class Planner {
     let stepDescriptions
 
     if (capabilities.length === 0) {
-      // 无匹配 → single，使用通用描述
+      // 无关键词匹配 → 使用第一个已注册能力，若无已注册能力则 fallback 到 general
       strategy = 'single'
-      stepDescriptions = [{ capability: 'general', description }]
+      const fallbackCap = registeredCapabilities.length > 0 ? registeredCapabilities[0] : 'general'
+      stepDescriptions = [{ capability: fallbackCap, description }]
     } else if (capabilities.length === 1) {
       strategy = 'single'
       stepDescriptions = [{ capability: capabilities[0], description }]
