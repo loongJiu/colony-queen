@@ -414,6 +414,20 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
    * @returns {{ feasible: boolean, missingCapabilities: string[], availableCapabilities: Array<{ capability: string, activeAgents: number }>, totalActiveAgents: number, suggestions: Array<{ requested: string, closest: string|null }> }}
    */
   precheck(description) {
+    const totalActiveAgents = this.#hive.getActiveCount()
+
+    // LLM 可用时：只要有在线 Agent 就放行，能力分配交给 LLM planner
+    if (this.#llmClient?.isConfigured) {
+      return {
+        feasible: totalActiveAgents > 0,
+        missingCapabilities: totalActiveAgents > 0 ? [] : ['any'],
+        availableCapabilities: [],
+        totalActiveAgents,
+        suggestions: []
+      }
+    }
+
+    // 无 LLM 时：使用关键词规则匹配
     const registeredCapabilities = this.#getRegisteredCapabilities()
     const requiredCapabilities = extractCapabilities(description, registeredCapabilities)
 
@@ -439,7 +453,7 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
       feasible: missing.length === 0,
       missingCapabilities: missing,
       availableCapabilities: available,
-      totalActiveAgents: this.#hive.getActiveCount(),
+      totalActiveAgents,
       suggestions
     }
   }

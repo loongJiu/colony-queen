@@ -25,6 +25,9 @@ const COLD_START_WEIGHT = 0.6
 /** softmax 温度参数（越高越随机，越低越贪心） */
 const SOFTMAX_TEMPERATURE = 0.5
 
+/** 亲和性加成系数（串行任务中同 Agent 复用权重倍数） */
+const AFFINITY_BOOST = 1.3
+
 export class Scheduler {
   /** @type {import('./hive.js').Hive} */
   #hive
@@ -155,6 +158,41 @@ export class Scheduler {
   }
 
   /**
+   * 选择 Agent，支持亲和性偏好
+   *
+   * 用于串行任务中：当同一 capability 在多个步骤中出现时，
+   * 偏好已成功处理过该 capability 的 Agent（上下文连续性）。
+   *
+   * @param {string} capability - 需要的能力
+   * @param {Object} [options]
+   * @param {string[]} [options.excludeIds] - 排除的 Agent ID 列表（重试场景）
+   * @param {string[]} [options.preferredAgentIds] - 亲和偏好的 Agent ID 列表
+   * @returns {import('../models/agent.js').AgentRecord}
+   * @throws {UnavailableError} 没有可用的 Agent
+   */
+  selectAgentWithAffinity(capability, { excludeIds = [], preferredAgentIds = [] } = {}) {
+    if (!capability) {
+      throw new UnavailableError('Capability is required for agent selection')
+    }
+
+    const candidates = this.#filterCandidates(capability, excludeIds)
+
+    if (candidates.length === 0) {
+      throw new UnavailableError(
+        `No available agent with capability "${capability}"${excludeIds.length > 0 ? ` after excluding ${excludeIds.length} agent(s)` : ''}`
+      )
+    }
+
+    const profiles = this.#getCachedProfiles(candidates, capability)
+
+    if (profiles.size > 0) {
+      return this.#weightedSelect(candidates, profiles, preferredAgentIds)
+    }
+
+    return this.#loadBalanceSelect(candidates, preferredAgentIds)
+  }
+
+  /**
    * 检查指定 Agent 是否可用于调度
    *
    * @param {string} agentId
@@ -219,11 +257,13 @@ export class Scheduler {
    * @param {Map<string, import('../models/capability-profile.js').CapabilityProfile>} profiles
    * @returns {import('../models/agent.js').AgentRecord}
    */
-  #weightedSelect(candidates, profiles) {
+  #weightedSelect(candidates, profiles, preferredAgentIds = []) {
     const weights = candidates.map(agent => {
       const profile = profiles.get(agent.agentId)
-      if (!profile) return COLD_START_WEIGHT
-      return this.computeWeight(agent, profile)
+      if (!profile) {
+        return preferredAgentIds.includes(agent.agentId) ? COLD_START_WEIGHT * AFFINITY_BOOST : COLD_START_WEIGHT
+      }
+      return this.computeWeight(agent, profile, preferredAgentIds.includes(agent.agentId))
     })
 
     return softmaxSample(candidates, weights, SOFTMAX_TEMPERATURE)
@@ -235,8 +275,12 @@ export class Scheduler {
    * @param {import('../models/agent.js').AgentRecord[]} candidates
    * @returns {import('../models/agent.js').AgentRecord}
    */
-  #loadBalanceSelect(candidates) {
+  #loadBalanceSelect(candidates, preferredAgentIds = []) {
     candidates.sort((a, b) => {
+      const aPreferred = preferredAgentIds.includes(a.agentId)
+      const bPreferred = preferredAgentIds.includes(b.agentId)
+      // 亲和优先
+      if (aPreferred !== bPreferred) return aPreferred ? -1 : 1
       if (a.load !== b.load) return a.load - b.load
       if (a.activeTasks !== b.activeTasks) return a.activeTasks - b.activeTasks
       return a.agentId.localeCompare(b.agentId)
@@ -254,10 +298,11 @@ export class Scheduler {
    * @param {import('../models/capability-profile.js').CapabilityProfile} profile
    * @returns {number}
    */
-  computeWeight(agent, profile) {
+  computeWeight(agent, profile, hasAffinity = false) {
     // 冷启动保护
     if (profile.taskCount < COLD_START_THRESHOLD) {
-      return COLD_START_WEIGHT
+      const weight = hasAffinity ? COLD_START_WEIGHT * AFFINITY_BOOST : COLD_START_WEIGHT
+      return Math.max(0.1, Math.min(1, weight))
     }
 
     // 基础权重：画像实际得分
@@ -275,6 +320,9 @@ export class Scheduler {
 
     // 成功率混入
     weight = weight * 0.6 + profile.successRate * 0.4
+
+    // 亲和性加成
+    if (hasAffinity) weight *= AFFINITY_BOOST
 
     return Math.max(0.1, Math.min(1, weight))
   }

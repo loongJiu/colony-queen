@@ -272,6 +272,16 @@ export class Executor {
     const existingResults = (task.results ?? []).filter(r => r.status === 'success')
     const results = [...existingResults]
     const firstPendingIndex = existingResults.length
+
+    // 构建 capability → agentId 亲和映射（支持断点续跑恢复）
+    const capabilityAgentMap = new Map()
+    for (const r of existingResults) {
+      const s = task.steps[r.stepIndex]
+      if (s && r.agentId && r.agentId !== 'unknown') {
+        capabilityAgentMap.set(s.capability, r.agentId)
+      }
+    }
+
     let current = task
 
     if (firstPendingIndex > 0) {
@@ -298,13 +308,20 @@ export class Executor {
       log.info({ stepIndex: i, capability: step.capability }, 'serial step start')
       this.#emitLog(task.taskId, 'executor', `串行步骤 ${i + 1}/${task.steps.length} 开始，能力: ${step.capability}`, { stepIndex: i, capability: step.capability })
 
+      // 亲和偏好：同 capability 的已成功 Agent
+      const preferredAgentIds = []
+      const preferredAgent = capabilityAgentMap.get(step.capability)
+      if (preferredAgent) preferredAgentIds.push(preferredAgent)
+
       // 执行步骤（支持重试）
       let stepResult = await this.#executeStep(
         { ...step, input: stepInput },
         task.conversationId,
         task.taskId,
         abortController,
-        timeoutMs
+        timeoutMs,
+        [],
+        preferredAgentIds
       )
 
       // 如果失败且可重试，使用 RetryService
@@ -340,7 +357,8 @@ export class Executor {
                 task.taskId,
                 abortController,
                 timeoutMs,
-                excludedIds
+                excludedIds,
+                preferredAgentIds
               )
             },
             lastResult: stepResult,
@@ -387,6 +405,12 @@ export class Executor {
       }
 
       results.push(stepResult)
+
+      // 更新亲和映射
+      if (stepResult.status === 'success' && stepResult.agentId && stepResult.agentId !== 'unknown') {
+        capabilityAgentMap.set(step.capability, stepResult.agentId)
+      }
+
       current = this.#updateTask(current, { results: [...results] })
 
       if (stepResult.status === 'success') {
@@ -615,15 +639,15 @@ export class Executor {
    * @param {string[]} [excludeAgentIds] - 排除的 Agent ID 列表
    * @returns {Promise<import('../models/task.js').StepResult>}
    */
-  async #executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds = []) {
+  async #executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds = [], preferredAgentIds = []) {
     const startedAt = Date.now()
     const log = this.#childLog({ taskId, stepIndex: step.stepIndex, capability: step.capability })
 
     // 1. 选择 Agent（支持排除列表）
     let agent
     try {
-      if (excludeAgentIds.length > 0) {
-        agent = this.#scheduler.selectAgentExcluding(step.capability, excludeAgentIds)
+      if (excludeAgentIds.length > 0 || preferredAgentIds.length > 0) {
+        agent = this.#scheduler.selectAgentWithAffinity(step.capability, { excludeIds: excludeAgentIds, preferredAgentIds })
       } else {
         agent = this.#scheduler.selectAgent(step.capability)
       }
