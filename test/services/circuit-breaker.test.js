@@ -1,3 +1,7 @@
+/**
+ * CircuitBreaker 熔断器单元测试
+ */
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { CircuitBreaker, CIRCUIT_STATES } from '../../src/services/circuit-breaker.js'
 

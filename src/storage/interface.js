@@ -49,6 +49,19 @@
  * - getRecentScores(agentId, capability, limit): Promise<number[]>
  *   获取 Agent 在某能力下最近的评分列表
  *
+ * ### CapabilityProfile 聚合操作
+ * - getAllProfiles(options?): Promise<CapabilityProfile[]>
+ *   获取所有能力画像，支持 agentId 过滤，按 actualScore DESC 排序
+ *
+ * - getProfilesByAgentId(agentId): Promise<CapabilityProfile[]>
+ *   按 agentId 获取所有能力画像
+ *
+ * - getAllFeedbacks(options?): Promise<FeedbackRecord[]>
+ *   获取所有反馈记录，支持 limit/offset 分页
+ *
+ * - getFeedbackCount(): Promise<number>
+ *   获取反馈记录总数
+ *
  * ### WorkSession 操作
  * - insertSession(record): Promise<WorkSessionRecord>
  *   插入一条工作会话记录
@@ -61,6 +74,9 @@
  *
  * - listSessions(options?): Promise<WorkSessionRecord[]>
  *   列出工作会话，支持 limit/offset/status 过滤
+ *
+ * - getSessionCount(status?): Promise<number>
+ *   获取会话数量，可按状态过滤
  *
  * ## 设计原则
  * 1. 所有方法返回 Promise（即使是同步实现），保持接口一致
@@ -76,6 +92,8 @@ export const STORAGE_METHODS = [
   'getFeedbackById',
   'getFeedbacksByTaskId',
   'getFeedbacksByAgentId',
+  'getAllFeedbacks',
+  'getFeedbackCount',
   'insertPlanCase',
   'getPlanCaseById',
   'searchSimilarCases',
@@ -84,10 +102,13 @@ export const STORAGE_METHODS = [
   'upsertProfile',
   'getProfile',
   'getRecentScores',
+  'getAllProfiles',
+  'getProfilesByAgentId',
   'insertSession',
   'getSession',
   'updateSession',
-  'listSessions'
+  'listSessions',
+  'getSessionCount'
 ]
 
 /**

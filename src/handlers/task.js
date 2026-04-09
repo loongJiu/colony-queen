@@ -5,6 +5,7 @@
  * GET    /task/:taskId           — 查询任务状态
  * DELETE /task/:taskId           — 取消任务
  * POST   /task/:taskId/feedback  — 提交用户反馈评分
+ * GET    /task/:taskId/feedback  — 获取任务的反馈列表
  */
 
 import { buildTasksFromPlan } from '../core/planner.js'
@@ -227,6 +228,32 @@ export default function taskRoutes(app, options) {
       type: 'task.cancelled',
       task_id: taskId,
       cancelled: true
+    })
+  })
+
+  // ── GET /task/:taskId/feedback ──────────────
+
+  app.get('/task/:taskId/feedback', async (request, reply) => {
+    const { taskId } = request.params
+
+    const task = executor.getTask(taskId)
+    if (!task) {
+      throw new NotFoundError(`Task "${taskId}" not found`)
+    }
+
+    // 降级：无 feedbackService 时返回空列表
+    if (!feedbackService) {
+      return reply.status(200).send({
+        type: 'task.feedbacks',
+        feedbacks: []
+      })
+    }
+
+    const feedbacks = await feedbackService.getFeedbacksByTaskId(taskId)
+
+    reply.status(200).send({
+      type: 'task.feedbacks',
+      feedbacks
     })
   })
 

@@ -11,7 +11,7 @@ import {
   ArrowLeft, Cpu, Activity, Server, Clock, Zap, BrainCircuit,
   Wrench, Swords, Globe, Shield, Hash, Loader2, Trash2, LogOut,
   Radio, Hexagon, Circle, ListTodo, ExternalLink, AlertTriangle,
-  Timer, Layers, Gauge
+  Timer, Layers, Gauge, Award
 } from 'lucide-react'
 
 /* ── Circular SVG Gauge ── */
@@ -336,6 +336,23 @@ export function AgentDetail () {
         </div>
 
         <div style={s.heroRight}>
+          {/* Profile link */}
+          <button
+            style={s.profileLinkBtn}
+            onClick={() => navigate(`/agents/${agentId}/profile`)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--color-primary)'
+              e.currentTarget.style.borderColor = 'var(--color-primary)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--color-text-muted)'
+              e.currentTarget.style.borderColor = 'var(--color-border)'
+            }}
+          >
+            <Award size={13} />
+            Capability Profile
+          </button>
+
           {/* Action button */}
           <button
             onClick={handleKick}
@@ -691,7 +708,22 @@ const s = {
   },
   heroRight: {
     display: 'flex',
-    alignItems: 'flex-start'
+    alignItems: 'flex-start',
+    gap: 8
+  },
+  profileLinkBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+    fontWeight: 500,
+    color: 'var(--color-text-muted)',
+    padding: '8px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    cursor: 'pointer',
+    transition: 'all 0.15s'
   },
   kickBtn: {
     display: 'inline-flex',

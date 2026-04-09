@@ -1,3 +1,7 @@
+/**
+ * Storage 工厂与接口测试
+ */
+
 import { describe, it, expect } from 'vitest'
 import { createStorage } from '../../src/storage/index.js'
 import { MemoryStore } from '../../src/storage/memory-store.js'

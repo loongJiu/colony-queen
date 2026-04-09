@@ -5,6 +5,8 @@ import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
 import { Agents } from './pages/Agents'
 import { AgentDetail } from './pages/AgentDetail'
+import { AgentProfile } from './pages/AgentProfile'
+import { Sessions } from './pages/Sessions'
 
 export default function App () {
   return (
@@ -15,6 +17,8 @@ export default function App () {
         <Route path='/tasks/:taskId' element={<TaskDetail />} />
         <Route path='/agents' element={<Agents />} />
         <Route path='/agents/:agentId' element={<AgentDetail />} />
+        <Route path='/agents/:agentId/profile' element={<AgentProfile />} />
+        <Route path='/sessions' element={<Sessions />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </Layout>

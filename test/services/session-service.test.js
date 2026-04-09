@@ -1,3 +1,7 @@
+/**
+ * SessionService 工作会话服务单元测试
+ */
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { SessionService } from '../../src/services/session-service.js'
 import { MemoryStore } from '../../src/storage/memory-store.js'

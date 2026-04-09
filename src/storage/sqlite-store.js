@@ -470,6 +470,69 @@ export class SQLiteStore {
   }
 
   /**
+   * 获取所有能力画像
+   *
+   * @param {Object} [options]
+   * @param {string} [options.agentId] - 按 agentId 过滤
+   * @returns {Promise<import('../models/capability-profile.js').CapabilityProfile[]>}
+   */
+  async getAllProfiles(options = {}) {
+    const { agentId } = options
+
+    let sql = 'SELECT * FROM capability_profiles'
+    const params = []
+
+    if (agentId) {
+      sql += ' WHERE agentId = ?'
+      params.push(agentId)
+    }
+
+    sql += ' ORDER BY actualScore DESC'
+
+    const rows = this.#db.prepare(sql).all(...params)
+    return rows.map(row => this.#profileRowToRecord(row))
+  }
+
+  /**
+   * 按 agentId 获取所有能力画像
+   *
+   * @param {string} agentId
+   * @returns {Promise<import('../models/capability-profile.js').CapabilityProfile[]>}
+   */
+  async getProfilesByAgentId(agentId) {
+    const rows = this.#db.prepare(
+      'SELECT * FROM capability_profiles WHERE agentId = ? ORDER BY actualScore DESC'
+    ).all(agentId)
+    return rows.map(row => this.#profileRowToRecord(row))
+  }
+
+  /**
+   * 获取所有反馈记录
+   *
+   * @param {Object} [options]
+   * @param {number} [options.limit=100]
+   * @param {number} [options.offset=0]
+   * @returns {Promise<import('../models/feedback.js').FeedbackRecord[]>}
+   */
+  async getAllFeedbacks(options = {}) {
+    const { limit = 100, offset = 0 } = options
+    const rows = this.#db.prepare(
+      'SELECT * FROM feedbacks ORDER BY createdAt DESC LIMIT ? OFFSET ?'
+    ).all(limit, offset)
+    return rows.map(row => this.#rowToRecord(row))
+  }
+
+  /**
+   * 获取反馈记录总数
+   *
+   * @returns {Promise<number>}
+   */
+  async getFeedbackCount() {
+    const row = this.#db.prepare('SELECT COUNT(*) as count FROM feedbacks').get()
+    return row.count
+  }
+
+  /**
    * 将数据库行转换为 CapabilityProfile 格式
    *
    * @param {Object} row
@@ -604,6 +667,21 @@ export class SQLiteStore {
 
     const rows = this.#db.prepare(sql).all(...params)
     return rows.map(row => this.#sessionRowToRecord(row))
+  }
+
+  /**
+   * 获取会话数量
+   *
+   * @param {string} [status] - 按状态过滤
+   * @returns {Promise<number>}
+   */
+  async getSessionCount(status) {
+    if (status) {
+      const row = this.#db.prepare('SELECT COUNT(*) as count FROM work_sessions WHERE status = ?').get(status)
+      return row.count
+    }
+    const row = this.#db.prepare('SELECT COUNT(*) as count FROM work_sessions').get()
+    return row.count
   }
 
   /**

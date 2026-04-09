@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Bot } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Bot, FolderTree } from 'lucide-react'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/agents', icon: Bot, label: 'Agents' }
+  { to: '/agents', icon: Bot, label: 'Agents' },
+  { to: '/sessions', icon: FolderTree, label: 'Sessions' }
 ]
 
 export function Sidebar () {

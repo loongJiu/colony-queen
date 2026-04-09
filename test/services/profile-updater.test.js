@@ -1,3 +1,7 @@
+/**
+ * ProfileUpdater 能力画像更新服务单元测试
+ */
+
 import { describe, it, expect } from 'vitest'
 import { ProfileUpdater } from '../../src/services/profile-updater.js'
 

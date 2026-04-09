@@ -3,6 +3,7 @@ import { MemoryStore } from '../../src/storage/memory-store.js'
 import { createFeedbackRecord } from '../../src/models/feedback.js'
 import { createPlanCaseRecord } from '../../src/models/plan-case.js'
 import { createWorkSessionRecord } from '../../src/models/work-session.js'
+import { createCapabilityProfile } from '../../src/models/capability-profile.js'
 
 describe('MemoryStore', () => {
   /** @type {MemoryStore} */
@@ -455,6 +456,110 @@ describe('MemoryStore', () => {
       await store.init()
       const found = await store.getSession(record.sessionId)
       expect(found).toBeNull()
+    })
+
+    it('counts sessions with and without status filter', async () => {
+      await store.insertSession(createWorkSessionRecord({ title: 'a1', status: 'active' }))
+      await store.insertSession(createWorkSessionRecord({ title: 'a2', status: 'active' }))
+      await store.insertSession(createWorkSessionRecord({ title: 'ar', status: 'archived' }))
+
+      const total = await store.getSessionCount()
+      expect(total).toBe(3)
+
+      const activeCount = await store.getSessionCount('active')
+      expect(activeCount).toBe(2)
+
+      const archivedCount = await store.getSessionCount('archived')
+      expect(archivedCount).toBe(1)
+    })
+  })
+
+  // ─── CapabilityProfile 聚合操作 ────────────────────────
+
+  describe('CapabilityProfile aggregation', () => {
+    it('getAllProfiles returns all profiles sorted by actualScore DESC', async () => {
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a1', capability: 'search', actualScore: 0.5 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a2', capability: 'search', actualScore: 0.9 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a3', capability: 'search', actualScore: 0.7 }))
+
+      const profiles = await store.getAllProfiles()
+      expect(profiles).toHaveLength(3)
+      expect(profiles[0].actualScore).toBe(0.9)
+      expect(profiles[1].actualScore).toBe(0.7)
+      expect(profiles[2].actualScore).toBe(0.5)
+    })
+
+    it('getAllProfiles filters by agentId', async () => {
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a1', capability: 'search', actualScore: 0.8 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a2', capability: 'search', actualScore: 0.9 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a1', capability: 'translate', actualScore: 0.6 }))
+
+      const profiles = await store.getAllProfiles({ agentId: 'a1' })
+      expect(profiles).toHaveLength(2)
+      profiles.forEach(p => expect(p.agentId).toBe('a1'))
+    })
+
+    it('getAllProfiles returns empty for unknown agentId', async () => {
+      const profiles = await store.getAllProfiles({ agentId: 'nonexistent' })
+      expect(profiles).toEqual([])
+    })
+
+    it('getProfilesByAgentId returns profiles for specific agent', async () => {
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a1', capability: 'search', actualScore: 0.5 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a1', capability: 'translate', actualScore: 0.9 }))
+      await store.upsertProfile(createCapabilityProfile({ agentId: 'a2', capability: 'search', actualScore: 0.7 }))
+
+      const profiles = await store.getProfilesByAgentId('a1')
+      expect(profiles).toHaveLength(2)
+      expect(profiles[0].actualScore).toBe(0.9) // sorted DESC
+      expect(profiles[1].actualScore).toBe(0.5)
+    })
+
+    it('getProfilesByAgentId returns empty for unknown agent', async () => {
+      const profiles = await store.getProfilesByAgentId('nonexistent')
+      expect(profiles).toEqual([])
+    })
+  })
+
+  // ─── Feedback 聚合操作 ─────────────────────────────────
+
+  describe('Feedback aggregation', () => {
+    it('getAllFeedbacks returns all feedbacks sorted by createdAt DESC', async () => {
+      const fb1 = createFeedbackRecord({ taskId: 't1', conversationId: 'c1', source: 'auto', autoScore: 0.5, agentId: 'a1', capability: 'search' })
+      await new Promise(r => setTimeout(r, 2))
+      const fb2 = createFeedbackRecord({ taskId: 't2', conversationId: 'c2', source: 'auto', autoScore: 0.8, agentId: 'a1', capability: 'search' })
+
+      await store.insertFeedback(fb1)
+      await store.insertFeedback(fb2)
+
+      const all = await store.getAllFeedbacks()
+      expect(all).toHaveLength(2)
+      expect(all[0].feedbackId).toBe(fb2.feedbackId)
+      expect(all[1].feedbackId).toBe(fb1.feedbackId)
+    })
+
+    it('getAllFeedbacks supports pagination', async () => {
+      for (let i = 0; i < 5; i++) {
+        await store.insertFeedback(createFeedbackRecord({
+          taskId: `task_pag_${i}`,
+          conversationId: `conv_pag_${i}`,
+          source: 'auto',
+          autoScore: 0.5,
+          agentId: 'a1',
+          capability: 'search'
+        }))
+      }
+
+      const page = await store.getAllFeedbacks({ limit: 2, offset: 0 })
+      expect(page).toHaveLength(2)
+    })
+
+    it('getFeedbackCount returns total count', async () => {
+      await store.insertFeedback(createFeedbackRecord({ taskId: 'tc1', conversationId: 'cc1', source: 'auto', autoScore: 0.5, agentId: 'a1', capability: 'search' }))
+      await store.insertFeedback(createFeedbackRecord({ taskId: 'tc2', conversationId: 'cc2', source: 'auto', autoScore: 0.5, agentId: 'a1', capability: 'search' }))
+
+      const count = await store.getFeedbackCount()
+      expect(count).toBeGreaterThanOrEqual(2)
     })
   })
 })

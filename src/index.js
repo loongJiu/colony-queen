@@ -21,6 +21,7 @@ import colonyRoutes from './handlers/colony.js'
 import taskRoutes from './handlers/task.js'
 import sessionRoutes from './handlers/session.js'
 import adminRoutes from './handlers/admin.js'
+import statsRoutes from './handlers/stats.js'
 import streamRoutes from './handlers/stream.js'
 
 const app = Fastify({
@@ -180,6 +181,9 @@ heartbeatMonitor.start()
 
 // 注册管理路由（需要 heartbeatMonitor）
 app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor, eventBus })
+
+// 注册统计与画像管理路由
+app.register(statsRoutes, { hive, executor, store, sessionService })
 
 // 注册 SSE 流式推送路由
 app.register(streamRoutes, { hive, executor, eventBus })

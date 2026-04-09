@@ -262,6 +262,60 @@ export class MemoryStore {
     return scores.slice(-limit)
   }
 
+  /**
+   * 获取所有能力画像
+   *
+   * @param {Object} [options]
+   * @param {string} [options.agentId] - 按 agentId 过滤
+   * @returns {Promise<import('../models/capability-profile.js').CapabilityProfile[]>}
+   */
+  async getAllProfiles(options = {}) {
+    const { agentId } = options
+    let results = [...this.#profiles.values()]
+
+    if (agentId) {
+      results = results.filter(p => p.agentId === agentId)
+    }
+
+    return results.sort((a, b) => b.actualScore - a.actualScore)
+  }
+
+  /**
+   * 按 agentId 获取所有能力画像
+   *
+   * @param {string} agentId
+   * @returns {Promise<import('../models/capability-profile.js').CapabilityProfile[]>}
+   */
+  async getProfilesByAgentId(agentId) {
+    return [...this.#profiles.values()]
+      .filter(p => p.agentId === agentId)
+      .sort((a, b) => b.actualScore - a.actualScore)
+  }
+
+  /**
+   * 获取所有反馈记录
+   *
+   * @param {Object} [options]
+   * @param {number} [options.limit=100]
+   * @param {number} [options.offset=0]
+   * @returns {Promise<import('../models/feedback.js').FeedbackRecord[]>}
+   */
+  async getAllFeedbacks(options = {}) {
+    const { limit = 100, offset = 0 } = options
+    return [...this.#feedbacks.values()]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(offset, offset + limit)
+  }
+
+  /**
+   * 获取反馈记录总数
+   *
+   * @returns {Promise<number>}
+   */
+  async getFeedbackCount() {
+    return this.#feedbacks.size
+  }
+
   // ─── WorkSession 操作 ────────────────────────────────────
 
   /**
@@ -336,6 +390,21 @@ export class MemoryStore {
     return results
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(offset, offset + limit)
+  }
+
+  /**
+   * 获取会话数量
+   *
+   * @param {string} [status] - 按状态过滤
+   * @returns {Promise<number>}
+   */
+  async getSessionCount(status) {
+    if (!status) return this.#sessions.size
+    let count = 0
+    for (const session of this.#sessions.values()) {
+      if (session.status === status) count++
+    }
+    return count
   }
 }
 

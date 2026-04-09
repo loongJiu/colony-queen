@@ -312,3 +312,138 @@ describe('POST /task/:taskId/feedback without feedbackService', () => {
     expect(body.error.code).toBe('ERR_FEEDBACK_SERVICE_UNAVAILABLE')
   })
 })
+
+// ── GET /task/:taskId/feedback ──────────────
+
+describe('GET /task/:taskId/feedback', () => {
+  let app
+  let executor
+  let feedbackService
+  let store
+
+  beforeAll(async () => {
+    app = Fastify()
+
+    const hive = new Hive()
+    const scheduler = new Scheduler({ hive })
+    const planner = new Planner({ hive })
+    executor = new Executor({ scheduler })
+    store = new MemoryStore()
+    await store.init()
+    feedbackService = new FeedbackService({ store })
+
+    app.setErrorHandler((err, request, reply) => {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send(err.toJSON(request.id))
+      }
+      if (err instanceof ValidationError) {
+        return reply.status(400).send(err.toJSON(request.id))
+      }
+      reply.status(500).send({ error: { code: 'ERR_INTERNAL', message: err.message } })
+    })
+
+    app.register(taskRoutes, { planner, executor, feedbackService })
+
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await store.close()
+    await app.close()
+  })
+
+  it('returns 404 for non-existent task', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/task/task_nonexistent/feedback'
+    })
+
+    expect(response.statusCode).toBe(404)
+    const body = JSON.parse(response.body)
+    expect(body.error.code).toBe('ERR_NOT_FOUND')
+  })
+
+  it('returns empty feedbacks for task with no feedback', async () => {
+    const task = makeCompletedTask()
+    executor.registerDraft({ ...task, status: 'success', results: [] })
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/task/${task.taskId}/feedback`
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body.type).toBe('task.feedbacks')
+    expect(body.feedbacks).toEqual([])
+  })
+
+  it('returns feedbacks for task with submitted feedback', async () => {
+    const task = makeCompletedTask()
+    executor.registerDraft({
+      ...task,
+      status: 'success',
+      results: [{
+        stepIndex: 0,
+        agentId: 'agent_001',
+        status: 'success',
+        startedAt: Date.now(),
+        finishedAt: Date.now()
+      }]
+    })
+
+    // 先提交一条反馈
+    await app.inject({
+      method: 'POST',
+      url: `/task/${task.taskId}/feedback`,
+      payload: { userScore: 4, comment: '不错' }
+    })
+
+    // 再获取
+    const response = await app.inject({
+      method: 'GET',
+      url: `/task/${task.taskId}/feedback`
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body.type).toBe('task.feedbacks')
+    expect(body.feedbacks.length).toBeGreaterThanOrEqual(1)
+    expect(body.feedbacks.some(f => f.userScore === 4)).toBe(true)
+  })
+
+  it('returns empty feedbacks when feedbackService is unavailable', async () => {
+    const noFbApp = Fastify()
+
+    const hive = new Hive()
+    const scheduler = new Scheduler({ hive })
+    const planner = new Planner({ hive })
+    const noFbExecutor = new Executor({ scheduler })
+
+    noFbApp.setErrorHandler((err, request, reply) => {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send(err.toJSON(request.id))
+      }
+      reply.status(500).send({ error: { code: 'ERR_INTERNAL', message: err.message } })
+    })
+
+    // 不提供 feedbackService
+    noFbApp.register(taskRoutes, { planner, executor: noFbExecutor })
+    await noFbApp.ready()
+
+    const task = makeCompletedTask()
+    noFbExecutor.registerDraft({ ...task, status: 'success', results: [] })
+
+    const response = await noFbApp.inject({
+      method: 'GET',
+      url: `/task/${task.taskId}/feedback`
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body.type).toBe('task.feedbacks')
+    expect(body.feedbacks).toEqual([])
+
+    await noFbApp.close()
+  })
+})

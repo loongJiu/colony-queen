@@ -9,7 +9,7 @@ import { formatDuration } from '../utils/format'
 import { TASK_STATUS_COLORS, STATUS_LABELS } from '../utils/constants'
 import {
   ArrowLeft, XCircle, Clock, Loader2, CheckCircle2, XCircle as FailIcon,
-  Layers, Brain, FileText, Network
+  Layers, Brain, FileText, Network, Star, Send, MessageSquare, Sparkles
 } from 'lucide-react'
 
 export function TaskDetail () {
@@ -22,6 +22,13 @@ export function TaskDetail () {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+
+  // Feedback state
+  const [feedbackList, setFeedbackList] = useState([])
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   // API 返回的初始日志（刷新后可恢复）
   const apiLogsRef = useRef([])
@@ -72,6 +79,32 @@ export function TaskDetail () {
     if (task) return { ...task, ...(storeTaskData || {}) }
     return storeTaskData
   }, [task, storeTaskData])
+
+  // Fetch feedback
+  useEffect(() => {
+    if (!taskId) return
+    apiFetch(`/task/${taskId}/feedback`)
+      .then((data) => { if (data?.feedbacks?.length) setFeedbackList(data.feedbacks) })
+      .catch(() => {})
+  }, [taskId])
+
+  const handleSubmitFeedback = async () => {
+    if (rating === 0) return
+    setSubmitting(true)
+    try {
+      const fb = await apiFetch(`/task/${taskId}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ userScore: rating, comment })
+      })
+      setFeedbackList((prev) => [...prev, fb])
+      setRating(0)
+      setComment('')
+    } catch (err) {
+      alert(`Submit failed: ${err.message}`)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const handleCancel = async () => {
     if (!window.confirm(`Cancel task ${taskId}?`)) return
@@ -285,6 +318,94 @@ export function TaskDetail () {
           </div>
           <div style={styles.outputBlock}>
             {renderOutput(effectiveTask.finalOutput)}
+          </div>
+        </section>
+      )}
+
+      {/* Feedback / Rating */}
+      {(status === 'success' || status === 'failure' || status === 'partial') && (
+        <section style={styles.section}>
+          <div style={styles.sectionTitle}>
+            <MessageSquare size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <span style={styles.sectionTitleText}>Feedback</span>
+            <div style={styles.sectionLine} />
+          </div>
+
+          {/* Auto score */}
+          {effectiveTask.autoScore != null && (
+            <div style={styles.autoScoreCard}>
+              <Sparkles size={14} style={{ color: 'var(--color-primary)' }} />
+              <div style={styles.autoScoreContent}>
+                <span style={styles.autoScoreLabel}>Auto Score</span>
+                <span style={styles.autoScoreValue}>{effectiveTask.autoScore}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Existing feedback */}
+          {feedbackList.length > 0 && (
+            <div style={styles.feedbackList}>
+              {feedbackList.map((fb, i) => (
+                <div key={i} style={styles.feedbackItem}>
+                  <div style={styles.feedbackStars}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={14}
+                        fill={s <= fb.userScore ? '#f59e0b' : 'none'}
+                        stroke={s <= fb.userScore ? '#f59e0b' : 'var(--color-text-muted)'}
+                      />
+                    ))}
+                    <span style={styles.feedbackRating}>{fb.userScore}/5</span>
+                  </div>
+                  {fb.userComment && <p style={styles.feedbackComment}>{fb.userComment}</p>}
+                  <span style={styles.feedbackSource}>
+                    {fb.source === 'auto' ? 'Auto' : 'Manual'} &middot; {fb.createdAt ? new Date(fb.createdAt).toLocaleString() : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Rating form */}
+          <div style={styles.ratingCard}>
+            <div style={styles.ratingRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  style={styles.starBtn}
+                  onClick={() => setRating(s)}
+                  onMouseEnter={() => setHoverRating(s)}
+                  onMouseLeave={() => setHoverRating(0)}
+                >
+                  <Star
+                    size={22}
+                    fill={s <= (hoverRating || rating) ? '#f59e0b' : 'none'}
+                    stroke={s <= (hoverRating || rating) ? '#f59e0b' : 'var(--color-border)'}
+                    style={{ transition: 'all 0.1s' }}
+                  />
+                </button>
+              ))}
+              {rating > 0 && <span style={styles.ratingText}>{rating}/5</span>}
+            </div>
+            <div style={styles.commentRow}>
+              <input
+                style={styles.commentInput}
+                placeholder='Add a comment (optional)...'
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+              />
+              <button
+                style={styles.submitBtn(submitting || rating === 0)}
+                onClick={handleSubmitFeedback}
+                disabled={submitting || rating === 0}
+              >
+                {submitting
+                  ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  : <Send size={14} />
+                }
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -565,5 +686,126 @@ const styles = {
   },
   loadingText: {
     fontSize: 13
-  }
+  },
+
+  /* Feedback */
+  autoScoreCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '12px 16px',
+    background: 'var(--color-primary-dim)',
+    border: '1px solid rgba(245, 158, 11, 0.2)',
+    borderRadius: 'var(--radius-sm)'
+  },
+  autoScoreContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8
+  },
+  autoScoreLabel: {
+    fontSize: 11,
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    fontWeight: 600
+  },
+  autoScoreValue: {
+    fontSize: 18,
+    fontWeight: 700,
+    fontFamily: "'IBM Plex Mono', monospace",
+    color: 'var(--color-primary)'
+  },
+  feedbackList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8
+  },
+  feedbackItem: {
+    padding: '12px 16px',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6
+  },
+  feedbackStars: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2
+  },
+  feedbackRating: {
+    marginLeft: 8,
+    fontSize: 12,
+    fontFamily: "'IBM Plex Mono', monospace",
+    color: 'var(--color-text-secondary)',
+    fontWeight: 600
+  },
+  feedbackComment: {
+    fontSize: 13,
+    color: 'var(--color-text-secondary)',
+    lineHeight: 1.5,
+    margin: 0
+  },
+  feedbackSource: {
+    fontSize: 10,
+    color: 'var(--color-text-muted)',
+    fontFamily: "'IBM Plex Mono', monospace"
+  },
+  ratingCard: {
+    padding: '16px',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12
+  },
+  ratingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  starBtn: {
+    padding: 2,
+    cursor: 'pointer',
+    background: 'none',
+    border: 'none',
+    lineHeight: 0
+  },
+  ratingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontWeight: 600,
+    color: 'var(--color-primary)'
+  },
+  commentRow: {
+    display: 'flex',
+    gap: 8
+  },
+  commentInput: {
+    flex: 1,
+    padding: '8px 12px',
+    fontSize: 12,
+    background: 'var(--color-surface-hover)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--color-text)',
+    outline: 'none',
+    fontFamily: "'DM Sans', sans-serif"
+  },
+  submitBtn: (disabled) => ({
+    padding: '8px 14px',
+    background: disabled ? 'var(--color-surface-hover)' : 'var(--color-primary)',
+    color: disabled ? 'var(--color-text-muted)' : '#0f1117',
+    border: 'none',
+    borderRadius: 'var(--radius-sm)',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.15s'
+  })
 }

@@ -1,3 +1,7 @@
+/**
+ * FeedbackScorer 反馈自动评分算法单元测试
+ */
+
 import { describe, it, expect, beforeEach } from 'vitest'
 import { FeedbackScorer } from '../../src/services/feedback-scorer.js'
 
