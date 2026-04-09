@@ -43,7 +43,10 @@ export class Executor {
   /** @type {import('./llm-client.js').LLMClient | null} */
   #llmClient
 
-  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null, llmClient = null }) {
+  /** @type {import('./feedback-service.js').FeedbackService | null} */
+  #feedbackService
+
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null, llmClient = null, feedbackService = null }) {
     this.#scheduler = scheduler
     this.#retryService = retryService
     this.#logger = logger
@@ -51,6 +54,7 @@ export class Executor {
     this.#maxRetry = maxRetry
     this.#eventBus = eventBus
     this.#llmClient = llmClient
+    this.#feedbackService = feedbackService
   }
 
   /**
@@ -85,38 +89,92 @@ export class Executor {
     this.#abortControllers.set(task.taskId, abortController)
 
     try {
-      let final
+      let execResult
       switch (task.strategy) {
         case 'single':
-          final = await this.#executeSingle(running, abortController)
+          execResult = await this.#executeSingle(running, abortController)
           break
         case 'serial':
-          final = await this.#executeSerial(running, abortController)
+          execResult = await this.#executeSerial(running, abortController)
           break
         case 'parallel':
-          final = await this.#executeParallel(running, abortController)
+          execResult = await this.#executeParallel(running, abortController)
           break
         default:
-          final = this.#updateTask(running, { status: 'failure', finishedAt: Date.now() })
+          execResult = { task: running, results: [], executionStatus: 'failure' }
       }
 
-      // 任务终态时计算 finalOutput 并写入 TaskRecord，SSE 即时推送
-      if (['success', 'failure', 'partial'].includes(final.status) && final.results?.length > 0) {
-        let finalOutput
-        // 多步任务：用 LLM 综合所有步骤结果，生成针对原始问题的回答
-        if (final.results.length > 1 && final.status !== 'failure' && this.#llmClient?.isConfigured) {
+      const { task: executedTask, results, executionStatus } = execResult
+      // 先更新 results（中间状态更新，不设终态）
+      let final = this.#updateTask(executedTask, { results: [...results] })
+
+      // 计算 finalOutput
+      let finalOutput
+      if (['success', 'partial'].includes(executionStatus) && results.length > 0) {
+        if (results.length > 1 && this.#llmClient?.isConfigured) {
+          this.#emitLog(task.taskId, 'executor', '正在综合各步骤结果...')
           finalOutput = await this.#synthesizeResult(final)
+          this.#emitLog(task.taskId, 'executor', '结果综合完成')
         } else {
           const aggregated = merge(final)
           finalOutput = aggregated.output
         }
-        final = this.#updateTask(final, { finalOutput })
+      } else if (executionStatus === 'failure' && results.length > 0) {
+        const aggregated = merge(final)
+        finalOutput = aggregated.output
+      }
+
+      // 一次性设置终态 + finalOutput + finishedAt，SSE 只推送一次完整状态
+      final = this.#updateTask(final, {
+        status: executionStatus,
+        finishedAt: Date.now(),
+        ...(finalOutput !== undefined && { finalOutput })
+      })
+
+      // 任务完成后触发自动评分（不阻塞返回）
+      if (this.#feedbackService && ['success', 'failure', 'partial'].includes(executionStatus)) {
+        try {
+          this.#feedbackService.autoScore(final, { timeoutMs: this.#resolveTimeout(task) })
+        } catch (err) {
+          this.#logger.warn({ err: err.message, taskId: task.taskId }, 'auto scoring failed')
+        }
       }
 
       return final
     } finally {
       this.#abortControllers.delete(task.taskId)
     }
+  }
+
+  /**
+   * 注册一个 draft task（仅注册到内存，不执行）
+   * 用于异步规划场景：先注册 draft 供 SSE 跟踪，后台再规划+执行
+   *
+   * @param {import('../models/task.js').TaskRecord} task
+   * @returns {import('../models/task.js').TaskRecord}
+   */
+  registerDraft(task) {
+    this.#tasks.set(task.taskId, task)
+    this.#taskLogs.set(task.taskId, [])
+    this.#eventBus?.emit('task.updated', task)
+    return task
+  }
+
+  /**
+   * 更新任务状态（不经过执行流程）
+   * 用于规划失败等场景直接标记终态
+   *
+   * @param {string} taskId
+   * @param {Object} patch
+   * @returns {import('../models/task.js').TaskRecord | null}
+   */
+  updateTaskStatus(taskId, patch) {
+    const task = this.#tasks.get(taskId)
+    if (!task) return null
+    const updated = Object.freeze({ ...task, ...patch })
+    this.#tasks.set(taskId, updated)
+    this.#eventBus?.emit('task.updated', updated)
+    return updated
   }
 
   /**
@@ -215,7 +273,7 @@ export class Executor {
     for (let i = firstPendingIndex; i < task.steps.length; i++) {
       if (abortController.signal.aborted) {
         log.info({ stepIndex: i }, 'task cancelled by abort signal')
-        return this.#updateTask(current, { results, status: 'cancelled', finishedAt: Date.now() })
+        return { task: current, results, executionStatus: 'cancelled' }
       }
 
       const step = task.steps[i]
@@ -244,12 +302,26 @@ export class Executor {
       if (stepResult.status === 'failure' && stepResult.error?.retryable && this.#retryService) {
         let retryCount = 0
         const excludeAgentIds = stepResult.agentId !== 'unknown' ? [stepResult.agentId] : []
+        const retryHistory = []
 
         while (retryCount < this.#maxRetry) {
           log.warn(
             { stepIndex: i, attempt: retryCount + 1, maxRetry: this.#maxRetry, errorCode: stepResult.error?.code },
             'serial step failed, retrying'
           )
+
+          this.#emitLog(task.taskId, 'executor',
+            `步骤 ${i + 1} 失败(${stepResult.error?.code})，重试 ${retryCount + 1}/${this.#maxRetry}，排除 Agent: [${excludeAgentIds.join(', ')}]`,
+            { stepIndex: i, retryAttempt: retryCount + 1, maxRetry: this.#maxRetry, errorCode: stepResult.error?.code },
+            'warn'
+          )
+
+          retryHistory.push({
+            attempt: retryCount + 1,
+            agentId: stepResult.agentId,
+            error: stepResult.error,
+            timestamp: Date.now()
+          })
 
           const { result: retryResult, shouldRetry } = await this.#retryService.executeWithRetry({
             fn: async (excludedIds) => {
@@ -270,7 +342,16 @@ export class Executor {
 
           stepResult = retryResult
 
-          if (!shouldRetry || stepResult.status === 'success') break
+          if (stepResult.status === 'success') {
+            this.#emitLog(task.taskId, 'executor',
+              `步骤 ${i + 1} 重试成功(第 ${retryCount + 1} 次)`,
+              { stepIndex: i, retryAttempt: retryCount + 1 },
+              'info'
+            )
+            break
+          }
+
+          if (!shouldRetry) break
           retryCount++
 
           // 更新排除列表
@@ -281,7 +362,19 @@ export class Executor {
 
         if (stepResult.status === 'failure') {
           log.error({ stepIndex: i, retryCount, errorCode: stepResult.error?.code }, 'serial step failed after all retries')
+          this.#emitLog(task.taskId, 'executor',
+            `步骤 ${i + 1} 重试 ${retryCount} 次后仍失败: ${stepResult.error?.message ?? 'unknown error'}`,
+            { stepIndex: i, retryCount, errorCode: stepResult.error?.code },
+            'error'
+          )
         }
+
+        // 将重试元数据写入 stepResult
+        stepResult = createStepResult({
+          ...stepResult,
+          retryCount,
+          retryHistory
+        })
       }
 
       results.push(stepResult)
@@ -298,15 +391,18 @@ export class Executor {
       if (stepResult.status === 'failure') {
         this.#emitLog(task.taskId, 'executor',
           `步骤 ${i + 1} 失败: ${stepResult.error?.message ?? 'unknown error'}`,
-          { stepIndex: i, status: 'failure', error: stepResult.error }
+          { stepIndex: i, status: 'failure', error: stepResult.error },
+          'error'
         )
-        return this.#updateTask(current, { results, status: 'failure', finishedAt: Date.now() })
+        // 不设置终态，由 run() 统一处理
+        return { task: current, results, executionStatus: 'failure' }
       }
     }
 
     log.info({ totalSteps: results.length, durationMs: Date.now() - task.startedAt }, 'serial task completed')
     this.#emitLog(task.taskId, 'executor', `串行任务全部完成，共 ${results.length} 步，总耗时: ${((Date.now() - task.startedAt) / 1000).toFixed(1)}s`)
-    return this.#updateTask(current, { results, status: 'success', finishedAt: Date.now() })
+    // 不设置终态，由 run() 统一处理
+    return { task: current, results, executionStatus: 'success' }
   }
 
   /**
@@ -326,13 +422,15 @@ export class Executor {
     log.info({ stepCount: task.steps.length, timeoutMs }, 'parallel execution start')
     this.#emitLog(task.taskId, 'executor', `并行执行开始，共 ${task.steps.length} 步`)
 
-    const promises = task.steps.map(step =>
-      this.#executeStep(
+    const promises = task.steps.map((step, idx) =>
+      this.#executeStepWithRetry(
         { ...step, input: step.input ?? task.request?.input ?? task.request?.description },
         task.conversationId,
         task.taskId,
         abortController,
-        timeoutMs
+        timeoutMs,
+        log,
+        idx
       )
     )
 
@@ -360,7 +458,91 @@ export class Executor {
     this.#emitLog(task.taskId, 'executor',
       `并行执行完成，成功: ${successes}，失败: ${failures}，状态: ${status}，耗时: ${((Date.now() - task.startedAt) / 1000).toFixed(1)}s`
     )
-    return this.#updateTask(task, { results, status, finishedAt: Date.now() })
+    // 不设置终态，由 run() 统一处理
+    return { task, results, executionStatus: status }
+  }
+
+  /**
+   * 执行步骤（含重试逻辑）
+   * 被 parallel 和 single 策略使用
+   *
+   * @param {Object} step
+   * @param {string} conversationId
+   * @param {string} taskId
+   * @param {AbortController} abortController
+   * @param {number} timeoutMs
+   * @param {Object} log - 子 logger
+   * @param {number} stepDisplayIndex - 用于日志显示的步骤序号
+   * @returns {Promise<import('../models/task.js').StepResult>}
+   */
+  async #executeStepWithRetry(step, conversationId, taskId, abortController, timeoutMs, log, stepDisplayIndex) {
+    let stepResult = await this.#executeStep(step, conversationId, taskId, abortController, timeoutMs)
+
+    if (stepResult.status === 'failure' && stepResult.error?.retryable && this.#retryService) {
+      let retryCount = 0
+      const excludeAgentIds = stepResult.agentId !== 'unknown' ? [stepResult.agentId] : []
+      const retryHistory = []
+
+      while (retryCount < this.#maxRetry) {
+        this.#emitLog(taskId, 'executor',
+          `步骤 ${stepDisplayIndex + 1} 失败(${stepResult.error?.code})，重试 ${retryCount + 1}/${this.#maxRetry}`,
+          { stepIndex: step.stepIndex, retryAttempt: retryCount + 1, maxRetry: this.#maxRetry, errorCode: stepResult.error?.code },
+          'warn'
+        )
+
+        retryHistory.push({
+          attempt: retryCount + 1,
+          agentId: stepResult.agentId,
+          error: stepResult.error,
+          timestamp: Date.now()
+        })
+
+        const { result: retryResult, shouldRetry } = await this.#retryService.executeWithRetry({
+          fn: async (excludedIds) => {
+            return await this.#executeStep(step, conversationId, taskId, abortController, timeoutMs, excludedIds)
+          },
+          lastResult: stepResult,
+          retryCount,
+          excludeAgentIds,
+          logger: this.#logger
+        })
+
+        stepResult = retryResult
+
+        if (stepResult.status === 'success') {
+          this.#emitLog(taskId, 'executor',
+            `步骤 ${stepDisplayIndex + 1} 重试成功(第 ${retryCount + 1} 次)`,
+            { stepIndex: step.stepIndex, retryAttempt: retryCount + 1 },
+            'info'
+          )
+          break
+        }
+
+        if (!shouldRetry) break
+        retryCount++
+
+        if (stepResult.agentId !== 'unknown' && !excludeAgentIds.includes(stepResult.agentId)) {
+          excludeAgentIds.push(stepResult.agentId)
+        }
+      }
+
+      if (stepResult.status === 'failure') {
+        log.error({ stepIndex: step.stepIndex, retryCount, errorCode: stepResult.error?.code }, 'step failed after all retries')
+        this.#emitLog(taskId, 'executor',
+          `步骤 ${stepDisplayIndex + 1} 重试 ${retryCount} 次后仍失败: ${stepResult.error?.message ?? 'unknown error'}`,
+          { stepIndex: step.stepIndex, retryCount, errorCode: stepResult.error?.code },
+          'error'
+        )
+      }
+
+      return createStepResult({
+        ...stepResult,
+        retryCount,
+        retryHistory
+      })
+    }
+
+    return stepResult
   }
 
   /**
@@ -378,12 +560,14 @@ export class Executor {
     log.info({ capability: step.capability }, 'single step start')
     this.#emitLog(task.taskId, 'executor', `步骤开始，能力: ${step.capability}`, { stepIndex: step.stepIndex })
 
-    const stepResult = await this.#executeStep(
+    const stepResult = await this.#executeStepWithRetry(
       { ...step, input: step.input ?? task.request?.input ?? task.request?.description },
       task.conversationId,
       task.taskId,
       abortController,
-      timeoutMs
+      timeoutMs,
+      log,
+      0
     )
 
     const results = [stepResult]
@@ -395,24 +579,8 @@ export class Executor {
       `步骤完成，状态: ${stepResult.status}，耗时: ${((stepResult.finishedAt - stepResult.startedAt) / 1000).toFixed(1)}s`,
       { stepIndex: step.stepIndex, status: stepResult.status }
     )
-    return this.#updateTask(task, { results, status: stepResult.status, finishedAt: Date.now() })
-  }
-
-  /**
-   * 执行步骤（重试版本，排除指定 Agent）
-   *
-   * 与 #executeStep 相同，但使用 scheduler.selectAgentExcluding() 排除已失败的 Agent。
-   *
-   * @param {Object} step
-   * @param {string} conversationId
-   * @param {string} taskId
-   * @param {AbortController} abortController
-   * @param {number} timeoutMs
-   * @param {string[]} excludeAgentIds
-   * @returns {Promise<import('../models/task.js').StepResult>}
-   */
-  async #executeStepWithRetry(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds) {
-    return await this.#executeStep(step, conversationId, taskId, abortController, timeoutMs, excludeAgentIds)
+    // 不设置终态，由 run() 统一处理
+    return { task, results, executionStatus: stepResult.status }
   }
 
   /**
@@ -625,13 +793,15 @@ export class Executor {
    * @param {string} source - 日志来源（planner / executor / agent）
    * @param {string} message - 日志消息
    * @param {Object} [extra] - 额外字段
+   * @param {string} [level='info'] - 日志级别（info / warn / error）
    */
-  #emitLog(taskId, source, message, extra = {}) {
+  #emitLog(taskId, source, message, extra = {}, level = 'info') {
     const entry = {
       taskId,
       source,
       message,
       timestamp: Date.now(),
+      level,
       ...extra
     }
     // 持久化日志（刷新后可通过 API 获取）

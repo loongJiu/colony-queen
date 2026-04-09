@@ -11,6 +11,8 @@ import { Executor } from './services/executor.js'
 import { HeartbeatMonitor } from './services/heartbeat.js'
 import { RetryService } from './services/retry.js'
 import { TaskRescheduler } from './services/rescheduler.js'
+import { createStorage } from './storage/index.js'
+import { FeedbackService } from './services/feedback-service.js'
 import colonyRoutes from './handlers/colony.js'
 import taskRoutes from './handlers/task.js'
 import adminRoutes from './handlers/admin.js'
@@ -63,6 +65,22 @@ app.decorate('planner', planner)
 const retryService = new RetryService()
 app.decorate('retryService', retryService)
 
+// 初始化存储层
+const store = createStorage({
+  backend: config.STORAGE_BACKEND,
+  ...(config.STORAGE_BACKEND === 'sqlite' && { path: config.SQLITE_PATH })
+})
+
+// 初始化 FeedbackService 反馈服务
+const feedbackService = new FeedbackService({
+  eventBus,
+  waggle,
+  hive,
+  store,
+  logger: app.log
+})
+app.decorate('feedbackService', feedbackService)
+
 // 初始化 Executor 任务执行器
 const executor = new Executor({
   scheduler,
@@ -71,7 +89,8 @@ const executor = new Executor({
   defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000,
   maxRetry: config.SCHEDULER_MAX_RETRY,
   eventBus,
-  llmClient
+  llmClient,
+  feedbackService
 })
 app.decorate('executor', executor)
 
@@ -121,7 +140,7 @@ app.get('/health', async () => {
 
 // 注册路由
 app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN, eventBus })
-app.register(taskRoutes, { planner, executor, hive, eventBus })
+app.register(taskRoutes, { planner, executor, hive, eventBus, feedbackService })
 
 // 启动心跳监控
 const heartbeatMonitor = new HeartbeatMonitor({
@@ -150,6 +169,9 @@ app.decorate('rescheduler', rescheduler)
 
 // 应用生命周期钩子
 app.addHook('onReady', async () => {
+  // 初始化存储层
+  await store.init()
+  app.log.info({ backend: config.STORAGE_BACKEND }, 'Storage initialized')
   // 启动任务重调度器
   rescheduler.start()
   app.log.info('TaskRescheduler started')
@@ -162,6 +184,9 @@ app.addHook('onClose', async () => {
   // 停止心跳监控
   heartbeatMonitor.stop()
   app.log.info('HeartbeatMonitor stopped')
+  // 关闭存储层
+  await store.close()
+  app.log.info('Storage closed')
 })
 
 // 全局未处理异常

@@ -38,7 +38,6 @@ export function TaskDetail () {
         if (!cancelled) {
           if (data.logs?.length > 0) {
             apiLogsRef.current = data.logs
-            // 初始化 store 日志（仅当 store 中还没有该任务的日志时）
             const existing = useTaskStore.getState().taskLogs[taskId]
             if (!existing || existing.length === 0) {
               for (const log of data.logs) {
@@ -65,7 +64,6 @@ export function TaskDetail () {
     const apiLogs = apiLogsRef.current
     if (!liveLogs || liveLogs.length === 0) return apiLogs
     if (apiLogs.length === 0) return liveLogs
-    // liveLogs 可能已包含 apiLogs（通过 addLog 初始化），直接用 liveLogs
     return liveLogs
   }, [liveLogs])
 
@@ -111,7 +109,7 @@ export function TaskDetail () {
 
   const status = effectiveTask.status || 'pending'
   const statusColor = TASK_STATUS_COLORS[status] || '#6b7280'
-  const isActive = status === 'running' || status === 'pending'
+  const isActive = status === 'running' || status === 'pending' || status === 'planning'
   const steps = effectiveTask.steps || []
   const results = effectiveTask.results || []
   const duration = effectiveTask.startedAt ? (effectiveTask.finishedAt || Date.now()) - effectiveTask.startedAt : null
@@ -164,94 +162,7 @@ export function TaskDetail () {
         )}
       </div>
 
-      {/* Execution flow */}
-      {steps.length > 0 && (
-        <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={styles.sectionTitleText}>Execution Flow</span>
-            <div style={styles.sectionLine} />
-          </div>
-          <TaskFlow steps={steps} results={results} />
-        </section>
-      )}
-
-      {/* Real-time logs */}
-      <section style={styles.section}>
-        <div style={styles.sectionTitle}>
-          <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
-          <span style={styles.sectionTitleText}>Real-time Logs</span>
-          <div style={styles.sectionLine} />
-        </div>
-        <TaskLogPanel logs={logs} maxHeight={300} />
-      </section>
-
-      {/* Step details */}
-      {results.length > 0 && (
-        <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={styles.sectionTitleText}>Step Results</span>
-            <div style={styles.sectionLine} />
-          </div>
-          <div style={styles.stepGrid}>
-            {steps.map((step, i) => {
-              const result = results.find((r) => r.stepIndex === step.stepIndex || r.stepIndex === i)
-              const stepStatus = result?.status || 'pending'
-              const stepColor = TASK_STATUS_COLORS[stepStatus] || '#94a3b8'
-              const stepDuration = result ? (result.finishedAt || Date.now()) - result.startedAt : null
-
-              return (
-                <div key={i} style={{ ...styles.stepCard, borderLeftColor: stepColor }}>
-                  <div style={styles.stepCardHeader}>
-                    <span style={styles.stepName}>
-                      <StatusDot status={stepStatus} size='sm' pulse={stepStatus === 'running'} />
-                      {step.name || step.description || `Step ${i + 1}`}
-                    </span>
-                  </div>
-                  <div style={styles.stepMeta}>
-                    <span style={styles.stepCapability}>{step.capability}</span>
-                    {result?.agentId && (
-                      <span style={styles.stepAgent}>Agent: {result.agentId}</span>
-                    )}
-                    {stepDuration != null && (
-                      <span style={styles.stepDuration}>{formatDuration(stepDuration)}</span>
-                    )}
-                    <span style={{ ...styles.stepStatus, color: stepColor, marginLeft: 'auto' }}>
-                      {STATUS_LABELS[stepStatus] || stepStatus}
-                    </span>
-                  </div>
-                  {step.reasoning && (
-                    <p style={styles.stepReasoning}>{step.reasoning}</p>
-                  )}
-                  {result?.error && (
-                    <div style={styles.errorBlock}>
-                      <span style={styles.errorCode}>{result.error.code}</span>
-                      <span style={styles.errorMessage}>{result.error.message}</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Final output */}
-      {effectiveTask.finalOutput && (
-        <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={styles.sectionTitleText}>Final Output</span>
-            <div style={styles.sectionLine} />
-          </div>
-          <div style={styles.outputBlock}>
-            {renderOutput(effectiveTask.finalOutput)}
-          </div>
-        </section>
-      )}
-
-      {/* LLM Plan Info */}
+      {/* LLM/Keyword Planning Details (moved above Execution Flow) */}
       {effectiveTask.planInfo && (
         <section style={styles.section}>
           <div style={styles.sectionTitle}>
@@ -315,6 +226,65 @@ export function TaskDetail () {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Planning state indicator */}
+      {status === 'planning' && (
+        <section style={styles.section}>
+          <div style={styles.planningCard}>
+            <div style={styles.planningHeader}>
+              <Brain size={20} style={{ color: 'var(--color-info)', animation: 'spin 2s linear infinite' }} />
+              <span style={styles.planningText}>Planning your task...</span>
+            </div>
+            <TaskLogPanel logs={logs} maxHeight={200} />
+          </div>
+          <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
+        </section>
+      )}
+
+      {/* Execution flow (with merged Step Results via node detail panel) */}
+      {steps.length > 0 && status !== 'planning' && (
+        <section style={styles.section}>
+          <div style={styles.sectionTitle}>
+            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <span style={styles.sectionTitleText}>Execution Flow</span>
+            <div style={styles.sectionLine} />
+          </div>
+          <TaskFlow
+            steps={steps}
+            results={results}
+            strategy={effectiveTask.strategy}
+            taskStatus={status}
+            planSteps={effectiveTask.planInfo?.steps}
+            onCancel={isActive ? handleCancel : undefined}
+          />
+        </section>
+      )}
+
+      {/* Real-time logs */}
+      {status !== 'planning' && (
+        <section style={styles.section}>
+          <div style={styles.sectionTitle}>
+            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <span style={styles.sectionTitleText}>Real-time Logs</span>
+            <div style={styles.sectionLine} />
+          </div>
+          <TaskLogPanel logs={logs} maxHeight={300} />
+        </section>
+      )}
+
+      {/* Final output */}
+      {effectiveTask.finalOutput && (
+        <section style={styles.section}>
+          <div style={styles.sectionTitle}>
+            <FileText size={14} style={{ color: 'var(--color-text-muted)' }} />
+            <span style={styles.sectionTitleText}>Final Output</span>
+            <div style={styles.sectionLine} />
+          </div>
+          <div style={styles.outputBlock}>
+            {renderOutput(effectiveTask.finalOutput)}
           </div>
         </section>
       )}
@@ -486,71 +456,25 @@ const styles = {
     background: 'linear-gradient(90deg, var(--color-border), transparent)'
   },
 
-  /* Step results */
-  stepGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 10
-  },
-  stepCard: {
-    padding: '12px 16px',
+  /* Planning state */
+  planningCard: {
+    padding: 20,
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
-    borderLeft: '3px solid',
-    borderRadius: 'var(--radius)'
+    borderRadius: 'var(--radius)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16
   },
-  stepCardHeader: {
+  planningHeader: {
     display: 'flex',
     alignItems: 'center',
-    marginBottom: 8,
-    overflow: 'hidden'
+    gap: 10
   },
-  stepName: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 13,
+  planningText: {
+    fontSize: 14,
     fontWeight: 600,
-    color: 'var(--color-text)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    minWidth: 0
-  },
-  stepStatus: {
-    fontSize: 11,
-    fontWeight: 600
-  },
-  stepMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    flexWrap: 'wrap'
-  },
-  stepCapability: {
-    fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-primary)',
-    background: 'var(--color-primary-dim)',
-    padding: '1px 6px',
-    borderRadius: 3
-  },
-  stepAgent: {
-    fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-text-muted)'
-  },
-  stepDuration: {
-    fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
     color: 'var(--color-text-secondary)'
-  },
-  stepReasoning: {
-    fontSize: 12,
-    color: 'var(--color-text-muted)',
-    marginTop: 8,
-    lineHeight: 1.5,
-    fontStyle: 'italic'
   },
 
   /* Output */
@@ -569,32 +493,6 @@ const styles = {
     color: 'var(--color-text)',
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word'
-  },
-
-  /* Error */
-  errorBlock: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    padding: '8px 12px',
-    background: 'var(--color-error-dim)',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--color-error)33'
-  },
-  errorCode: {
-    fontSize: 11,
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontWeight: 600,
-    color: 'var(--color-error)',
-    padding: '1px 6px',
-    background: 'var(--color-error)15',
-    borderRadius: 3
-  },
-  errorMessage: {
-    fontSize: 12,
-    color: 'var(--color-error)',
-    lineHeight: 1.4
   },
 
   /* Plan info */

@@ -8,7 +8,7 @@
 import { genTaskId } from '../utils/id.js'
 import { ValidationError } from '../utils/errors.js'
 
-export const VALID_TASK_STATUSES = ['pending', 'running', 'success', 'failure', 'partial', 'cancelled']
+export const VALID_TASK_STATUSES = ['pending', 'planning', 'running', 'success', 'failure', 'partial', 'cancelled']
 export const VALID_STRATEGIES = ['single', 'serial', 'parallel']
 
 /**
@@ -62,7 +62,7 @@ export const VALID_STRATEGIES = ['single', 'serial', 'parallel']
  * @throws {ValidationError} description 为空或 strategy 无效
  */
 export function createTaskRecord(params) {
-  const { conversationId, strategy, request, steps, parentTaskId, planInfo, planLogs } = params
+  const { conversationId, strategy, request, steps, parentTaskId, planInfo, planLogs, taskId } = params
 
   if (!request?.description) {
     throw new ValidationError('request.description is required')
@@ -75,7 +75,7 @@ export function createTaskRecord(params) {
   }
 
   const record = {
-    taskId: genTaskId(),
+    taskId: taskId || genTaskId(),
     ...(parentTaskId != null && { parentTaskId }),
     conversationId: conversationId ?? genTaskId(),
     strategy,
@@ -128,7 +128,9 @@ export function createStepResult(params) {
     ...(params.usage != null && { usage: params.usage }),
     ...(params.artifacts != null && { artifacts: params.artifacts }),
     ...(params.error != null && { error: params.error }),
-    ...(params.finishedAt != null && { finishedAt: params.finishedAt })
+    ...(params.finishedAt != null && { finishedAt: params.finishedAt }),
+    ...(params.retryCount != null && { retryCount: params.retryCount }),
+    ...(params.retryHistory != null && { retryHistory: params.retryHistory })
   }
 
   return Object.freeze(result)

@@ -157,7 +157,8 @@ export class Planner {
         fallback.planLogs.splice(1, 0, {
           source: 'planner',
           message: `LLM 规划失败(${err.message})，降级到关键词匹配`,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          level: 'warn'
         })
         return fallback
       }
@@ -182,24 +183,24 @@ export class Planner {
     const ts = () => Date.now()
     const registeredCapabilities = this.#getRegisteredCapabilities()
 
-    logs.push({ source: 'planner', message: `开始关键词规则规划，已注册能力: [${registeredCapabilities.length > 0 ? registeredCapabilities.join(', ') : '(无)'}]`, timestamp: ts() })
+    logs.push({ source: 'planner', message: `开始关键词规则规划，已注册能力: [${registeredCapabilities.length > 0 ? registeredCapabilities.join(', ') : '(无)'}]`, timestamp: ts(), level: 'info' })
 
     const { capabilities, matches } = extractCapabilitiesWithDetails(description, registeredCapabilities)
 
     // 第一轮：已注册能力名匹配
     const nameMatches = matches.filter(m => m.source === 'capability_name')
     if (nameMatches.length > 0) {
-      logs.push({ source: 'planner', message: `第一轮(能力名): ${nameMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts() })
+      logs.push({ source: 'planner', message: `第一轮(能力名): ${nameMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts(), level: 'info' })
     } else {
-      logs.push({ source: 'planner', message: '第一轮(能力名): 无匹配', timestamp: ts() })
+      logs.push({ source: 'planner', message: '第一轮(能力名): 无匹配', timestamp: ts(), level: 'info' })
     }
 
     // 第二轮：关键词映射
     const kwMatches = matches.filter(m => m.source === 'keyword_map')
     if (kwMatches.length > 0) {
-      logs.push({ source: 'planner', message: `第二轮(关键词): ${kwMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts() })
+      logs.push({ source: 'planner', message: `第二轮(关键词): ${kwMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts(), level: 'info' })
     } else {
-      logs.push({ source: 'planner', message: '第二轮(关键词): 无匹配', timestamp: ts() })
+      logs.push({ source: 'planner', message: '第二轮(关键词): 无匹配', timestamp: ts(), level: 'info' })
     }
 
     let strategy
@@ -209,24 +210,24 @@ export class Planner {
       strategy = 'single'
       const fallbackCap = registeredCapabilities.length > 0 ? registeredCapabilities[0] : 'general'
       stepDescriptions = [{ capability: fallbackCap, description }]
-      logs.push({ source: 'planner', message: `未匹配到任何能力，fallback → ${fallbackCap}`, timestamp: ts() })
+      logs.push({ source: 'planner', message: `未匹配到任何能力，fallback → ${fallbackCap}`, timestamp: ts(), level: 'warn' })
     } else if (capabilities.length === 1) {
       strategy = 'single'
       stepDescriptions = [{ capability: capabilities[0], description }]
-      logs.push({ source: 'planner', message: `匹配到 1 个能力: ${capabilities[0]}，策略: single`, timestamp: ts() })
+      logs.push({ source: 'planner', message: `匹配到 1 个能力: ${capabilities[0]}，策略: single`, timestamp: ts(), level: 'info' })
     } else {
       const seqKeyword = SEQUENTIAL_KEYWORDS.find(kw => description.includes(kw))
       const isSequential = !!seqKeyword
       strategy = isSequential ? 'serial' : 'parallel'
       stepDescriptions = capabilities.map(cap => ({ capability: cap, description: `${cap} 步骤` }))
       if (isSequential) {
-        logs.push({ source: 'planner', message: `检测到顺序关键词 "${seqKeyword}"，策略: serial`, timestamp: ts() })
+        logs.push({ source: 'planner', message: `检测到顺序关键词 "${seqKeyword}"，策略: serial`, timestamp: ts(), level: 'info' })
       } else {
-        logs.push({ source: 'planner', message: `无顺序依赖关键词，策略: parallel`, timestamp: ts() })
+        logs.push({ source: 'planner', message: `无顺序依赖关键词，策略: parallel`, timestamp: ts(), level: 'info' })
       }
     }
 
-    logs.push({ source: 'planner', message: `规划完成: 策略=${strategy}, 步骤=${stepDescriptions.length}, 能力=[${capabilities.join(', ')}]`, timestamp: ts() })
+    logs.push({ source: 'planner', message: `规划完成: 策略=${strategy}, 步骤=${stepDescriptions.length}, 能力=[${capabilities.join(', ')}]`, timestamp: ts(), level: 'info' })
 
     return {
       conversationId: genConvId(),
@@ -261,7 +262,7 @@ export class Planner {
     const provider = this.#llmClient.provider ?? 'unknown'
     const model = this.#llmClient.model ?? 'unknown'
 
-    logs.push({ source: 'planner', message: `使用 LLM 规划 (${provider}/${model})`, timestamp: ts() })
+    logs.push({ source: 'planner', message: `使用 LLM 规划 (${provider}/${model})`, timestamp: ts(), level: 'info' })
 
     const capabilityList = capabilities
       .map(c => `- ${c.capability} (${c.agentCount}个Agent): ${c.description || c.capability}`)
@@ -297,10 +298,10 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
     })
 
     const durationMs = Date.now() - startedAt
-    logs.push({ source: 'planner', message: `LLM 响应完成，耗时 ${durationMs}ms`, timestamp: ts() })
+    logs.push({ source: 'planner', message: `LLM 响应完成，耗时 ${durationMs}ms`, timestamp: ts(), level: 'info' })
 
     const parsed = this.#parsePlan(raw)
-    logs.push({ source: 'planner', message: `规划完成: 策略=${parsed.strategy}, 步骤=${parsed.steps.length}, 能力=[${parsed.steps.map(s => s.capability).join(', ')}]`, timestamp: ts() })
+    logs.push({ source: 'planner', message: `规划完成: 策略=${parsed.strategy}, 步骤=${parsed.steps.length}, 能力=[${parsed.steps.map(s => s.capability).join(', ')}]`, timestamp: ts(), level: 'info' })
 
     return {
       ...parsed,
@@ -453,8 +454,9 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
  * @param {Object} [originalRequest.constraints]
  * @returns {import('../models/task.js').TaskRecord}
  */
-export function buildTasksFromPlan(plan, originalRequest) {
+export function buildTasksFromPlan(plan, originalRequest, taskIdOverride) {
   return createTaskRecord({
+    ...(taskIdOverride && { taskId: taskIdOverride }),
     conversationId: plan.conversationId,
     strategy: plan.strategy,
     request: originalRequest,

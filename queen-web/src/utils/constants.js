@@ -12,6 +12,7 @@ export const STATUS_COLORS = {
 }
 
 export const TASK_STATUS_COLORS = {
+  planning: '#818cf8',
   pending: '#6366f1',
   running: '#f59e0b',
   success: '#22c55e',
@@ -25,6 +26,7 @@ export const STATUS_LABELS = {
   busy: 'Busy',
   error: 'Error',
   offline: 'Offline',
+  planning: 'Planning',
   success: 'Success',
   pending: 'Pending',
   running: 'Running',

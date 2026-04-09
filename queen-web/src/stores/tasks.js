@@ -2,14 +2,14 @@ import { create } from 'zustand'
 
 export const useTaskStore = create((set, get) => ({
   tasks: [],
-  taskStats: { pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 },
+  taskStats: { planning: 0, pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 },
   // 任务日志：{ taskId: LogEntry[] }
   taskLogs: {},
 
   setSnapshot (data) {
     set({
       tasks: data.tasks || [],
-      taskStats: data.taskStats || { pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 }
+      taskStats: data.taskStats || { planning: 0, pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 }
     })
   },
 
@@ -52,7 +52,7 @@ export const useTaskStore = create((set, get) => ({
 }))
 
 function recalcTaskStats (tasks) {
-  const stats = { pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 }
+  const stats = { planning: 0, pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 }
   for (const t of tasks) {
     if (stats[t.status] !== undefined) stats[t.status]++
   }

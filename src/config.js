@@ -30,7 +30,10 @@ const schema = z.object({
 
   LLM_GLM_BASE_URL: z.string().default('https://open.bigmodel.cn/api/anthropic'),
   LLM_ANTHROPIC_BASE_URL: z.string().default(''),
-  LLM_OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1/chat/completions')
+  LLM_OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1/chat/completions'),
+
+  STORAGE_BACKEND: z.enum(['memory', 'sqlite']).default('memory'),
+  SQLITE_PATH: z.string().default('./data/colony-queen.db')
 })
 
 /** @type {z.infer<typeof schema>} */

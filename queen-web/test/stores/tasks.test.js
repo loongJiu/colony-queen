@@ -5,7 +5,7 @@ describe('useTaskStore', () => {
   beforeEach(() => {
     useTaskStore.setState({
       tasks: [],
-      taskStats: { pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 },
+      taskStats: { planning: 0, pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 },
       taskLogs: {}
     })
   })
@@ -30,7 +30,7 @@ describe('useTaskStore', () => {
       useTaskStore.getState().setSnapshot({})
       const state = useTaskStore.getState()
       expect(state.tasks).toEqual([])
-      expect(state.taskStats).toEqual({ pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 })
+      expect(state.taskStats).toEqual({ planning: 0, pending: 0, running: 0, success: 0, failure: 0, partial: 0, cancelled: 0 })
     })
   })
 

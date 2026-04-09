@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../../api/client'
-import { useTaskStore } from '../../stores/tasks'
 import {
-  Send, Loader2, Sparkles, ChevronDown, ChevronUp,
-  CheckCircle2, XCircle, ArrowRight, Wand2, X
+  Send, Loader2, Sparkles,
+  ChevronDown, ChevronUp,
+  Wand2, XCircle, X
 } from 'lucide-react'
 
 const EXAMPLES = [
@@ -18,7 +18,6 @@ const EXAMPLES = [
 export function TaskSubmit () {
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -31,15 +30,14 @@ export function TaskSubmit () {
     if (!canSubmit) return
     setLoading(true)
     setError(null)
-    setResult(null)
 
     try {
       const data = await apiFetch('/task', {
         method: 'POST',
         body: JSON.stringify({ description: description.trim() })
       })
-      setResult(data)
-      setDescription('')
+      // 立即导航到任务详情页
+      navigate(`/tasks/${data.task_id}`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -58,14 +56,6 @@ export function TaskSubmit () {
     setDescription(text)
     inputRef.current?.focus()
   }
-
-  // 提交成功后 3 秒自动折叠结果
-  useEffect(() => {
-    if (result) {
-      const timer = setTimeout(() => setExpanded(false), 8000)
-      return () => clearTimeout(timer)
-    }
-  }, [result])
 
   return (
     <div style={styles.wrapper}>
@@ -144,54 +134,6 @@ export function TaskSubmit () {
               {text}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* 提交结果 */}
-      {result && (
-        <div style={styles.resultCard}>
-          <div style={styles.resultHeader}>
-            <div style={styles.resultTitle}>
-              <CheckCircle2 size={15} style={{ color: 'var(--color-success)' }} />
-              <span style={{ fontWeight: 600 }}>任务已创建</span>
-            </div>
-            <div style={styles.resultActions}>
-              <button
-                style={styles.resultLink}
-                onClick={() => navigate(`/tasks/${result.task_id}`)}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-primary)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)' }}
-              >
-                查看详情 <ArrowRight size={12} />
-              </button>
-              <button style={styles.dismissBtn} onClick={() => { setResult(null); setExpanded(false) }}>
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div style={styles.resultMeta}>
-            <span style={styles.resultId}>{result.task_id}</span>
-            <span style={{
-              ...styles.strategyBadge,
-              color: result.strategy === 'single' ? 'var(--color-info)' : result.strategy === 'parallel' ? 'var(--color-success)' : 'var(--color-warning)'
-            }}
-            >
-              {result.strategy}
-            </span>
-          </div>
-
-          {(result.steps?.length > 0) && (
-            <div style={styles.stepsList}>
-              {result.steps.map((step, i) => (
-                <div key={i} style={styles.stepItem}>
-                  <span style={styles.stepIndex}>{step.step_index + 1}</span>
-                  <span style={styles.stepCap}>{step.capability}</span>
-                  <span style={styles.stepDesc}>{step.description}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -321,111 +263,6 @@ const styles = {
     whiteSpace: 'nowrap'
   },
 
-  /* 结果卡片 */
-  resultCard: {
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-success)33',
-    borderRadius: 'var(--radius)',
-    padding: '12px 14px',
-    animation: 'fadeIn 0.25s ease-out'
-  },
-  resultHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  resultTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 14
-  },
-  resultActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8
-  },
-  resultLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-    fontSize: 12,
-    color: 'var(--color-text-secondary)',
-    fontWeight: 500,
-    transition: 'color 0.15s'
-  },
-  dismissBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    color: 'var(--color-text-muted)',
-    padding: 2
-  },
-  resultMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8
-  },
-  resultId: {
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 12,
-    fontWeight: 500,
-    color: 'var(--color-primary)',
-    maxWidth: 200,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
-  },
-  strategyBadge: {
-    fontSize: 10,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    padding: '2px 8px',
-    borderRadius: 4,
-    background: 'var(--color-surface-hover)'
-  },
-  stepsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-    marginTop: 10,
-    paddingLeft: 2
-  },
-  stepItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    fontSize: 12
-  },
-  stepIndex: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    background: 'var(--color-surface-hover)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 10,
-    fontWeight: 600,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-text-muted)',
-    flexShrink: 0
-  },
-  stepCap: {
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: 11,
-    fontWeight: 500,
-    color: 'var(--color-primary)',
-    whiteSpace: 'nowrap'
-  },
-  stepDesc: {
-    color: 'var(--color-text-secondary)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
-  },
-
   /* 错误 */
   errorCard: {
     display: 'flex',
@@ -436,5 +273,12 @@ const styles = {
     borderRadius: 'var(--radius)',
     padding: '10px 14px',
     animation: 'fadeIn 0.2s ease-out'
+  },
+  dismissBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    color: 'var(--color-text-muted)',
+    padding: 2,
+    marginLeft: 'auto'
   }
 }
