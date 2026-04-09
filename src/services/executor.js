@@ -715,7 +715,7 @@ export class Executor {
           stepIndex: step.stepIndex,
           agentId: agent.agentId,
           status: body.status ?? 'success',
-          output: body.output,
+          output: body.output ?? body.result,
           summary: body.summary,
           usage: body.usage,
           artifacts: body.artifacts,
