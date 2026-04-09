@@ -14,7 +14,15 @@ export default defineConfig({
         bypass: (req) => {
           if (req.url?.startsWith('/tasks')) return req.url
         }
-      }
+      },
+      '/session': {
+        target: 'http://127.0.0.1:9009',
+        // /sessions/:sessionId 是前端路由，不要代理到后端
+        bypass: (req) => {
+          if (req.url?.startsWith('/sessions')) return req.url
+        }
+      },
+      '/agent': 'http://127.0.0.1:9009'
     }
   }
 })

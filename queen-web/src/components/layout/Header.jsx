@@ -6,12 +6,15 @@ import { Wifi, WifiOff } from 'lucide-react'
 const ROUTE_LABELS = {
   '/': 'Overview',
   '/tasks': 'Tasks',
-  '/agents': 'Agents'
+  '/agents': 'Agents',
+  '/sessions': 'Sessions'
 }
 
 function getBreadcrumbLabel (pathname) {
   if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]
+  if (pathname.startsWith('/sessions/')) return 'Session Detail'
   if (pathname.startsWith('/tasks/')) return 'Task Detail'
+  if (pathname.startsWith('/agents/') && pathname.endsWith('/profile')) return 'Agent Profile'
   if (pathname.startsWith('/agents/')) return 'Agent Detail'
   return 'Overview'
 }
@@ -22,27 +25,27 @@ export function Header () {
   const label = getBreadcrumbLabel(location.pathname)
 
   return (
-    <header style={styles.header}>
-      <div style={styles.left}>
-        <div style={styles.breadcrumb}>
-          <span style={styles.breadcrumbDim}>Colony</span>
-          <span style={styles.breadcrumbSep}>/</span>
-          <span style={styles.breadcrumbActive}>{label}</span>
+    <header style={s.header}>
+      <div style={s.left}>
+        <div style={s.breadcrumb}>
+          <span style={s.breadcrumbDim}>Colony</span>
+          <span style={s.breadcrumbSep}>/</span>
+          <span style={s.breadcrumbActive}>{label}</span>
         </div>
       </div>
 
-      <div style={styles.right}>
+      <div style={s.right}>
         <div style={{
-          ...styles.connection,
+          ...s.connection,
           color: connected ? 'var(--color-success)' : 'var(--color-error)'
         }}
         >
           {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
-          <span style={styles.connectionText}>
+          <span style={s.connectionText}>
             {connected ? 'Connected' : 'Disconnected'}
           </span>
           <span style={{
-            ...styles.connectionDot,
+            ...s.connectionDot,
             backgroundColor: connected ? 'var(--color-success)' : 'var(--color-error)',
             animation: connected ? 'header-pulse 2s ease-in-out infinite' : 'none'
           }}
@@ -61,7 +64,7 @@ export function Header () {
   )
 }
 
-const styles = {
+const s = {
   header: {
     height: 'var(--header-height)',
     borderBottom: '1px solid var(--color-border)',
@@ -71,6 +74,7 @@ const styles = {
     padding: '0 24px',
     background: 'var(--color-header-bg)',
     backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
     position: 'sticky',
     top: 0,
     zIndex: 50

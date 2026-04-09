@@ -5,10 +5,12 @@
  * 包括综合得分、成功率、能力柱状图和趋势折线图。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProfileStore } from '../stores/profiles'
-import { apiFetch } from '../api/client'
+import {
+  Card, Button, Badge, StatCard, PageHeader, SectionHeader, Skeleton
+} from '../components/ui'
 import {
   ArrowLeft, Loader2, TrendingUp, TrendingDown, Minus,
   BarChart3, Target, Award, Zap
@@ -31,10 +33,16 @@ export function AgentProfile () {
 
   if (loading || !profile) {
     return (
-      <div style={s.loadingWrap}>
-        <Loader2 size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
-        <span style={s.loadingText}>Loading capability profile...</span>
-        <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
+      <div style={s.page}>
+        <Button variant='ghost' size='sm' icon={ArrowLeft} onClick={() => navigate(`/agents/${agentId}`)}>Agent Detail</Button>
+        <div style={s.loadingWrap}>
+          <Skeleton variant='rect' width='100%' height={60} />
+          <div style={s.skeletonStatsRow}>
+            <Skeleton variant='rect' height={72} count={3} />
+          </div>
+          <Skeleton variant='rect' height={200} />
+          <Skeleton variant='rect' height={180} />
+        </div>
       </div>
     )
   }
@@ -64,58 +72,60 @@ export function AgentProfile () {
 
   return (
     <div style={s.page}>
+      <style>{`
+        @keyframes staggerIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* Top bar */}
-      <div style={s.topBar}>
-        <button style={s.backBtn} onClick={() => navigate(`/agents/${agentId}`)}>
-          <ArrowLeft size={14} />
-          <span>Agent Detail</span>
-        </button>
-      </div>
+      <Button variant='ghost' size='sm' icon={ArrowLeft} onClick={() => navigate(`/agents/${agentId}`)}>Agent Detail</Button>
 
       {/* Header */}
-      <div style={s.header}>
-        <div style={s.headerLeft}>
-          <Award size={20} style={{ color: 'var(--color-primary)' }} />
-          <div>
-            <h1 style={s.title}>Capability Profile</h1>
-            <span style={s.agentId}>{agentId}</span>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title='Capability Profile'
+        actions={
+          <span style={s.agentIdBadge}>
+            <span style={s.agentIdText}>{agentId}</span>
+          </span>
+        }
+      />
 
       {/* Overall stats */}
       <div style={s.statsRow}>
-        <OverallCard
-          icon={<Target size={16} />}
+        <StatCard
+          icon={Target}
           label='Overall Score'
           value={overall.score ?? '-'}
           accentColor='var(--color-primary)'
         />
-        <OverallCard
-          icon={<BarChart3 size={16} />}
+        <StatCard
+          icon={BarChart3}
           label='Success Rate'
           value={overall.successRate != null ? `${Math.round(overall.successRate * 100)}%` : '-'}
           accentColor='var(--color-success)'
         />
-        <OverallCard
-          icon={<Zap size={16} />}
+        <StatCard
+          icon={Zap}
           label='Total Tasks'
           value={overall.taskCount ?? '-'}
           accentColor='var(--color-info)'
         />
       </div>
 
-      {/* Capability table */}
+      {/* Capability grid */}
       {capabilities.length > 0 && (
         <section style={s.section}>
-          <div style={s.sectionTitle}>
-            <Target size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={s.sectionTitleText}>Capabilities</span>
-            <div style={s.sectionLine} />
-          </div>
+          <SectionHeader title='Capabilities' sub={`${capabilities.length}`} />
           <div style={s.capGrid}>
             {capabilities.map((cap, i) => (
-              <div key={i} style={s.capCard}>
+              <Card
+                key={i}
+                style={{
+                  animation: `staggerIn 0.35s ease-out ${i * 50}ms backwards`
+                }}
+              >
                 <div style={s.capHeader}>
                   <span style={s.capName}>{cap.capability || cap.name}</span>
                   {trendIcon(cap.trend)}
@@ -134,7 +144,7 @@ export function AgentProfile () {
                     <span style={s.capMetricValue}>{cap.taskCount ?? '-'}</span>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </section>
@@ -143,12 +153,8 @@ export function AgentProfile () {
       {/* Bar chart */}
       {barData.length > 0 && (
         <section style={s.section}>
-          <div style={s.sectionTitle}>
-            <BarChart3 size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={s.sectionTitleText}>Score Distribution</span>
-            <div style={s.sectionLine} />
-          </div>
-          <div style={s.chartCard}>
+          <SectionHeader title='Score Distribution' />
+          <Card>
             <ResponsiveContainer width='100%' height={220}>
               <BarChart data={barData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
                 <CartesianGrid strokeDasharray='3 3' stroke='var(--color-border)' />
@@ -166,19 +172,15 @@ export function AgentProfile () {
                 <Bar dataKey='score' fill='#f59e0b' radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
         </section>
       )}
 
       {/* Trend chart */}
       {trendData.length > 1 && (
         <section style={s.section}>
-          <div style={s.sectionTitle}>
-            <TrendingUp size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={s.sectionTitleText}>Score Trend</span>
-            <div style={s.sectionLine} />
-          </div>
-          <div style={s.chartCard}>
+          <SectionHeader title='Score Trend' />
+          <Card>
             <ResponsiveContainer width='100%' height={200}>
               <LineChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: -10 }}>
                 <CartesianGrid strokeDasharray='3 3' stroke='var(--color-border)' />
@@ -196,23 +198,9 @@ export function AgentProfile () {
                 <Line type='monotone' dataKey='score' stroke='#f59e0b' strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </Card>
         </section>
       )}
-    </div>
-  )
-}
-
-function OverallCard ({ icon, label, value, accentColor }) {
-  return (
-    <div style={{ ...s.overallCard, borderColor: accentColor + '22' }}>
-      <div style={{ ...s.overallIcon, background: accentColor + '15', color: accentColor }}>
-        {icon}
-      </div>
-      <div style={s.overallContent}>
-        <div style={s.overallLabel}>{label}</div>
-        <div style={{ ...s.overallValue, color: accentColor }}>{value}</div>
-      </div>
     </div>
   )
 }
@@ -224,90 +212,38 @@ const s = {
     gap: 24,
     animation: 'fadeIn 0.3s ease-out'
   },
-  topBar: { marginBottom: -8 },
-  backBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontSize: 12,
-    color: 'var(--color-text-muted)',
-    padding: '4px 0',
-    transition: 'color 0.15s',
-    cursor: 'pointer'
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: '-0.03em',
-    margin: 0
-  },
-  agentId: {
-    fontSize: 11,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-text-muted)'
-  },
+
+  /* Loading */
   loadingWrap: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    minHeight: 300,
-    color: 'var(--color-text-muted)'
+    gap: 16
   },
-  loadingText: { fontSize: 13 },
+  skeletonStatsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 12
+  },
+
+  /* Agent ID badge */
+  agentIdBadge: {
+    fontSize: 11,
+    fontFamily: "'IBM Plex Mono', monospace",
+    color: 'var(--color-text-muted)',
+    background: 'var(--color-surface)',
+    padding: '3px 10px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)'
+  },
+  agentIdText: {
+    letterSpacing: '-0.01em'
+  },
 
   /* Stats row */
   statsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: 12
-  },
-  overallCard: {
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '16px 20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14
-  },
-  overallIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
-  },
-  overallContent: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  overallLabel: {
-    fontSize: 10,
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600
-  },
-  overallValue: {
-    fontSize: 24,
-    fontWeight: 700,
-    fontFamily: "'IBM Plex Mono', monospace",
-    letterSpacing: '-0.03em',
-    lineHeight: 1.2
   },
 
   /* Sections */
@@ -316,22 +252,6 @@ const s = {
     flexDirection: 'column',
     gap: 12
   },
-  sectionTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8
-  },
-  sectionTitleText: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: 'var(--color-text-secondary)',
-    whiteSpace: 'nowrap'
-  },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    background: 'linear-gradient(90deg, var(--color-border), transparent)'
-  },
 
   /* Capability grid */
   capGrid: {
@@ -339,19 +259,11 @@ const s = {
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
     gap: 10
   },
-  capCard: {
-    padding: '14px 16px',
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10
-  },
   capHeader: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    marginBottom: 10
   },
   capName: {
     fontSize: 13,
@@ -379,13 +291,5 @@ const s = {
     fontWeight: 700,
     fontFamily: "'IBM Plex Mono', monospace",
     letterSpacing: '-0.02em'
-  },
-
-  /* Charts */
-  chartCard: {
-    padding: '16px',
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)'
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Sessions — 工作会话列表页面
+ * Sessions -- 工作会话列表页面
  *
  * 展示所有工作会话及其关联的任务列表，
  * 支持展开/折叠查看会话下的任务详情。
@@ -8,18 +8,26 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../stores/sessions'
+import { SessionCreateDialog } from '../components/session/SessionCreateDialog'
 import { StatusDot } from '../components/common/StatusDot'
 import { TASK_STATUS_COLORS, STATUS_LABELS } from '../utils/constants'
 import { formatTimeAgo } from '../utils/format'
 import {
+  Card, Button, Badge, StatCard, PageHeader, SectionHeader, Skeleton
+} from '../components/ui'
+import {
   FolderTree, ChevronRight, ChevronDown, ListTodo,
-  Clock, Loader2, Inbox
+  Clock, Loader2, Inbox, Plus, Zap
 } from 'lucide-react'
 
 export function Sessions () {
   const sessions = useSessionStore((s) => s.sessions)
   const loading = useSessionStore((s) => s.loading)
+  const createDialogOpen = useSessionStore((s) => s.createDialogOpen)
   const fetchSessions = useSessionStore((s) => s.fetchSessions)
+  const openCreateDialog = useSessionStore((s) => s.openCreateDialog)
+  const closeCreateDialog = useSessionStore((s) => s.closeCreateDialog)
+  const createSession = useSessionStore((s) => s.createSession)
   const [expanded, setExpanded] = useState({})
   const navigate = useNavigate()
 
@@ -31,109 +39,194 @@ export function Sessions () {
     setExpanded((prev) => ({ ...prev, [sessionId]: !prev[sessionId] }))
   }
 
-  if (loading && sessions.length === 0) {
-    return (
-      <div style={s.loadingWrap}>
-        <Loader2 size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
-        <span style={s.loadingText}>Loading sessions...</span>
-        <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
-      </div>
-    )
+  const handleCreated = (data) => {
+    // Session store already handles state update via createSession
+    if (data?.sessionId) {
+      setExpanded((prev) => ({ ...prev, [data.sessionId]: true }))
+    }
   }
 
   return (
     <div style={s.page}>
-      {/* Section title */}
-      <div style={s.sectionTitle}>
-        <span style={s.sectionTitleText}>Work Sessions</span>
-        <div style={s.titleLine} />
-      </div>
+      <PageHeader
+        title='Work Sessions'
+        count={sessions.length}
+        actions={
+          <Button
+            variant='primary'
+            size='sm'
+            icon={Plus}
+            onClick={openCreateDialog}
+          >
+            New Session
+          </Button>
+        }
+      />
 
-      {sessions.length === 0 ? (
-        <div style={s.emptyWrap}>
-          <Inbox size={20} style={{ color: 'var(--color-text-muted)', opacity: 0.3 }} />
-          <span style={s.emptyText}>No sessions yet</span>
+      <SessionCreateDialog
+        open={createDialogOpen}
+        onClose={closeCreateDialog}
+        onCreated={handleCreated}
+      />
+
+      {/* Loading skeleton */}
+      {loading && sessions.length === 0 ? (
+        <div style={s.skeletonList}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton
+              key={i}
+              variant='rect'
+              height={64}
+              style={{ animationDelay: `${i * 40}ms` }}
+            />
+          ))}
         </div>
+      ) : sessions.length === 0 ? (
+        /* Empty state */
+        <Card style={s.emptyCard}>
+          <div style={s.emptyInner}>
+            <div style={s.emptyIconWrap}>
+              <Inbox size={28} strokeWidth={1.5} style={{ color: 'var(--color-primary)', opacity: 0.7 }} />
+            </div>
+            <span style={s.emptyTitle}>No sessions yet</span>
+            <span style={s.emptyDesc}>
+              Create a work session to group related tasks together
+            </span>
+            <Button
+              variant='primary'
+              size='md'
+              icon={Plus}
+              onClick={openCreateDialog}
+              style={{ marginTop: 8 }}
+            >
+              Create First Session
+            </Button>
+          </div>
+        </Card>
       ) : (
+        /* Session list */
         <div style={s.sessionList}>
-          {sessions.map((session) => {
-            const isOpen = expanded[session.sessionId]
-            const tasks = session.tasks || []
-            const completedCount = tasks.filter((t) => t.status === 'success').length
-
-            return (
-              <div key={session.sessionId} style={s.sessionCard}>
-                {/* Session header */}
-                <div
-                  style={s.sessionHeader}
-                  onClick={() => toggleExpand(session.sessionId)}
-                >
-                  <div style={s.sessionLeft}>
-                    {isOpen
-                      ? <ChevronDown size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-                      : <ChevronRight size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-                    }
-                    <FolderTree size={14} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                    <div style={s.sessionInfo}>
-                      <span style={s.sessionName}>{session.name || session.sessionId}</span>
-                      <span style={s.sessionMeta}>
-                        {tasks.length} task{tasks.length !== 1 ? 's' : ''} &middot; {completedCount} completed
-                      </span>
-                    </div>
-                  </div>
-                  <div style={s.sessionRight}>
-                    {session.createdAt && (
-                      <span style={s.sessionTime}>
-                        <Clock size={10} style={{ opacity: 0.4 }} />
-                        {formatTimeAgo(session.createdAt)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded tasks */}
-                {isOpen && tasks.length > 0 && (
-                  <div style={s.taskList}>
-                    {tasks.map((task) => {
-                      const status = task.status || 'pending'
-                      const color = TASK_STATUS_COLORS[status] || '#6b7280'
-                      return (
-                        <div
-                          key={task.taskId}
-                          style={s.taskRow}
-                          onClick={() => navigate(`/tasks/${task.taskId}`)}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = color + '55'
-                            e.currentTarget.style.background = 'var(--color-surface-hover)'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--color-border)'
-                            e.currentTarget.style.background = 'var(--color-surface)'
-                          }}
-                        >
-                          <div style={s.taskLeft}>
-                            <StatusDot status={status} size='sm' pulse={status === 'running'} />
-                            <span style={s.taskDesc}>{task.request?.description || task.taskId}</span>
-                          </div>
-                          <div style={s.taskRight}>
-                            <span style={{ ...s.taskStatus, color }}>{STATUS_LABELS[status]}</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {isOpen && tasks.length === 0 && (
-                  <div style={s.emptyTasks}>
-                    <span style={s.emptyTasksText}>No tasks in this session</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {sessions.map((session, i) => (
+            <SessionCard
+              key={session.sessionId}
+              session={session}
+              index={i}
+              isOpen={expanded[session.sessionId]}
+              onToggle={() => toggleExpand(session.sessionId)}
+              onTaskClick={(taskId) => navigate(`/tasks/${taskId}`)}
+            />
+          ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function SessionCard ({ session, index, isOpen, onToggle, onTaskClick }) {
+  const tasks = session.tasks || []
+  const completedCount = tasks.filter((t) => t.status === 'success').length
+  const isActive = session.status === 'active'
+  const isArchived = session.status === 'archived'
+
+  return (
+    <div
+      style={{
+        ...s.sessionCard,
+        animationDelay: `${index * 40}ms`,
+      }}
+    >
+      {/* Session header */}
+      <div
+        style={s.sessionHeader}
+        onClick={onToggle}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--color-surface-hover)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'transparent'
+        }}
+      >
+        <div style={s.sessionLeft}>
+          <div style={{
+            ...s.chevron,
+            transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+          }}>
+            <ChevronDown size={14} />
+          </div>
+          <FolderTree size={14} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+          <div style={s.sessionInfo}>
+            <div style={s.sessionNameRow}>
+              <span style={s.sessionName}>{session.name || session.title || session.sessionId}</span>
+              {isActive && (
+                <Badge variant='status' color='var(--color-success)' pulse>
+                  active
+                </Badge>
+              )}
+              {isArchived && (
+                <Badge variant='status' color='var(--color-text-muted)'>
+                  archived
+                </Badge>
+              )}
+            </div>
+            <span style={s.sessionMeta}>
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} &middot; {completedCount} completed
+            </span>
+          </div>
+        </div>
+        <div style={s.sessionRight}>
+          {session.createdAt && (
+            <span style={s.sessionTime}>
+              <Clock size={10} style={{ opacity: 0.4 }} />
+              {formatTimeAgo(session.createdAt)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Expanded tasks with height transition */}
+      <div style={{
+        ...s.taskListWrap,
+        maxHeight: isOpen ? 600 : 0,
+        opacity: isOpen ? 1 : 0,
+      }}>
+        <div style={s.taskList}>
+          {tasks.length > 0 ? (
+            tasks.map((task) => {
+              const status = task.status || 'pending'
+              const color = TASK_STATUS_COLORS[status] || '#6b7280'
+              return (
+                <div
+                  key={task.taskId}
+                  style={s.taskRow}
+                  onClick={() => onTaskClick(task.taskId)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = color + '55'
+                    e.currentTarget.style.background = 'var(--color-surface-hover)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-border)'
+                    e.currentTarget.style.background = 'var(--color-surface)'
+                  }}
+                >
+                  <div style={s.taskLeft}>
+                    <StatusDot status={status} size='sm' pulse={status === 'running'} />
+                    <span style={s.taskDesc}>{task.request?.description || task.taskId}</span>
+                  </div>
+                  <div style={s.taskRight}>
+                    <Badge variant='status' color={color}>
+                      {STATUS_LABELS[status]}
+                    </Badge>
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div style={s.emptyTasks}>
+              <span style={s.emptyTasksText}>No tasks in this session</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -143,63 +236,62 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: 20,
-    animation: 'fadeIn 0.3s ease-out'
-  },
-  sectionTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16
-  },
-  sectionTitleText: {
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: '-0.03em',
-    whiteSpace: 'nowrap'
-  },
-  titleLine: {
-    flex: 1,
-    height: 1,
-    background: 'linear-gradient(90deg, var(--color-border), transparent)'
   },
 
-  /* Loading */
-  loadingWrap: {
+  /* Skeleton */
+  skeletonList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+
+  /* Empty state */
+  emptyCard: {
+    animation: 'fadeIn 0.4s var(--ease-out) both',
+  },
+  emptyInner: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: '56px 24px',
     gap: 12,
-    minHeight: 300,
-    color: 'var(--color-text-muted)'
   },
-  loadingText: { fontSize: 13 },
-
-  /* Empty */
-  emptyWrap: {
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: '50%',
+    background: 'var(--color-primary-dim)',
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '24px 16px',
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)'
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  emptyText: {
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: 'var(--color-text)',
+    fontFamily: "'Syne', sans-serif",
+  },
+  emptyDesc: {
     fontSize: 13,
-    color: 'var(--color-text-muted)'
+    color: 'var(--color-text-muted)',
+    textAlign: 'center',
+    maxWidth: 300,
   },
 
   /* Session list */
   sessionList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8
+    gap: 8,
   },
   sessionCard: {
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius)',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    animation: 'fadeIn 0.4s var(--ease-out) both',
   },
   sessionHeader: {
     display: 'flex',
@@ -207,20 +299,30 @@ const s = {
     justifyContent: 'space-between',
     padding: '14px 16px',
     cursor: 'pointer',
-    transition: 'background 0.15s'
+    transition: 'background var(--duration-fast) var(--ease-default)',
   },
   sessionLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
+  },
+  chevron: {
+    color: 'var(--color-text-muted)',
+    flexShrink: 0,
+    transition: 'transform var(--duration-fast) var(--ease-default)',
   },
   sessionInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
-    minWidth: 0
+    gap: 3,
+    minWidth: 0,
+  },
+  sessionNameRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
   },
   sessionName: {
     fontSize: 13,
@@ -228,18 +330,18 @@ const s = {
     color: 'var(--color-text)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
   },
   sessionMeta: {
     fontSize: 11,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'IBM Plex Mono', monospace",
   },
   sessionRight: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    flexShrink: 0
+    flexShrink: 0,
   },
   sessionTime: {
     display: 'flex',
@@ -247,13 +349,17 @@ const s = {
     gap: 4,
     fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'IBM Plex Mono', monospace",
   },
 
-  /* Tasks */
+  /* Task list with height transition */
+  taskListWrap: {
+    overflow: 'hidden',
+    transition: 'max-height 0.3s var(--ease-default), opacity 0.25s var(--ease-default)',
+  },
   taskList: {
     borderTop: '1px solid var(--color-border)',
-    padding: '4px 0'
+    padding: '4px 0',
   },
   taskRow: {
     display: 'flex',
@@ -261,40 +367,33 @@ const s = {
     justifyContent: 'space-between',
     padding: '10px 16px 10px 44px',
     cursor: 'pointer',
-    transition: 'all 0.15s',
-    borderLeft: '2px solid transparent'
+    transition: 'all var(--duration-fast) var(--ease-default)',
+    borderLeft: '2px solid transparent',
+    background: 'var(--color-surface)',
   },
   taskLeft: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
   },
   taskDesc: {
     fontSize: 12,
     color: 'var(--color-text-secondary)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
   },
   taskRight: {
-    flexShrink: 0
-  },
-  taskStatus: {
-    fontSize: 10,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    fontFamily: "'IBM Plex Mono', monospace"
+    flexShrink: 0,
   },
   emptyTasks: {
     padding: '12px 16px 12px 44px',
-    borderTop: '1px solid var(--color-border)'
   },
   emptyTasksText: {
     fontSize: 11,
     color: 'var(--color-text-muted)',
-    fontStyle: 'italic'
-  }
+    fontStyle: 'italic',
+  },
 }

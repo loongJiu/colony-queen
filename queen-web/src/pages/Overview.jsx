@@ -1,11 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAgentStore } from '../stores/agents'
 import { useTaskStore } from '../stores/tasks'
 import { useProfileStore } from '../stores/profiles'
 import { AgentCard } from '../components/agent/AgentCard'
-import { EmptyState } from '../components/common/EmptyState'
-import { Bot, Activity, BarChart3, Trophy, Target, Star } from 'lucide-react'
+import {
+  Card, Button, Badge, StatCard, PageHeader, SectionHeader, Skeleton
+} from '../components/ui'
+import {
+  Bot, Activity, BarChart3, Trophy, Target, Star, Zap
+} from 'lucide-react'
+
+const RANK_COLORS = ['#f59e0b', '#94a3b8', '#c2884d']
 
 export function Overview () {
   const navigate = useNavigate()
@@ -16,6 +22,7 @@ export function Overview () {
   const profiles = useProfileStore((s) => s.profiles)
   const fetchStats = useProfileStore((s) => s.fetchStats)
   const fetchProfiles = useProfileStore((s) => s.fetchProfiles)
+  const [loading, setLoading] = useState(true)
 
   const onlineAgents = (agentStats.idle || 0) + (agentStats.busy || 0) + (agentStats.error || 0)
   const runningTasks = taskStats.running || 0
@@ -39,120 +46,162 @@ export function Overview () {
     .slice(0, 5)
 
   useEffect(() => {
-    fetchStats()
-    fetchProfiles()
+    Promise.all([fetchStats(), fetchProfiles()]).finally(() => setLoading(false))
   }, [])
 
+  const statsCards = [
+    {
+      icon: <Bot size={18} />,
+      label: 'Online Agents',
+      value: onlineAgents,
+      sub: `${agents.length} registered`,
+      accentColor: 'var(--color-success)',
+    },
+    {
+      icon: <Activity size={18} />,
+      label: 'Running Tasks',
+      value: runningTasks,
+      sub: `${taskStats.pending || 0} pending`,
+      accentColor: 'var(--color-warning)',
+    },
+    {
+      icon: <BarChart3 size={18} />,
+      label: 'Total Tasks',
+      value: totalTasks,
+      sub: `${taskStats.success || 0} completed`,
+      accentColor: 'var(--color-info)',
+    },
+    {
+      icon: <Target size={18} />,
+      label: 'Success Rate',
+      value: adminStats.successRate != null ? `${Math.round(adminStats.successRate * 100)}%` : '—',
+      sub: 'Overall',
+      accentColor: 'var(--color-success)',
+    },
+    {
+      icon: <Star size={18} />,
+      label: 'Avg Score',
+      value: adminStats.avgScore != null ? (Math.round(adminStats.avgScore * 10) / 10) : '—',
+      sub: 'Feedback rating',
+      accentColor: 'var(--color-primary)',
+    },
+  ]
+
   return (
-    <div style={styles.page}>
-      {/* Section title */}
-      <div style={styles.sectionTitle}>
-        <span style={styles.sectionTitleText}>Overview</span>
-        <div style={styles.titleLine} />
-      </div>
+    <div style={s.page}>
+      <PageHeader title='Overview' />
 
-      {/* Stat cards */}
-      <div style={styles.statsRow}>
-        <StatCard
-          icon={<Bot size={18} />}
-          label='Online Agents'
-          value={onlineAgents}
-          sub={`${agents.length} registered`}
-          accentColor='var(--color-success)'
-          accentDim='var(--color-success-dim)'
-        />
-        <StatCard
-          icon={<Activity size={18} />}
-          label='Running Tasks'
-          value={runningTasks}
-          sub={`${taskStats.pending || 0} pending`}
-          accentColor='var(--color-warning)'
-          accentDim='var(--color-warning-dim)'
-        />
-        <StatCard
-          icon={<BarChart3 size={18} />}
-          label='Total Tasks'
-          value={totalTasks}
-          sub={`${taskStats.success || 0} completed`}
-          accentColor='var(--color-info)'
-          accentDim='var(--color-info-dim)'
-        />
-        <StatCard
-          icon={<Target size={18} />}
-          label='Success Rate'
-          value={adminStats.successRate != null ? `${Math.round(adminStats.successRate * 100)}%` : '-'}
-          sub='Overall'
-          accentColor='var(--color-success)'
-          accentDim='var(--color-success-dim)'
-        />
-        <StatCard
-          icon={<Star size={18} />}
-          label='Avg Score'
-          value={adminStats.avgScore != null ? (Math.round(adminStats.avgScore * 10) / 10) : '-'}
-          sub='Feedback rating'
-          accentColor='var(--color-primary)'
-          accentDim='var(--color-primary-dim)'
-        />
-      </div>
+      {/* Stat cards with staggered animation */}
+      {loading ? (
+        <div style={s.statsRow}>
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} variant='rect' height={88} style={{ animationDelay: `${i * 40}ms` }} />
+          ))}
+        </div>
+      ) : (
+        <div style={s.statsRow}>
+          {statsCards.map((cfg, i) => (
+            <div
+              key={cfg.label}
+              style={{ ...s.statItem, animationDelay: `${i * 40}ms` }}
+            >
+              <StatCard {...cfg} />
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Agent Leaderboard */}
-      {topAgents.length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.agentsHeader}>
-            <Trophy size={14} style={{ color: 'var(--color-primary)' }} />
-            <span style={styles.agentsTitle}>Top Agents</span>
-            <span style={styles.agentsCount}>{topAgents.length}</span>
-          </div>
-          <div style={styles.leaderboard}>
+      {/* Top Agents Leaderboard */}
+      {!loading && topAgents.length > 0 && (
+        <div style={{ ...s.section, animationDelay: '200ms' }}>
+          <SectionHeader
+            title='Top Agents'
+            sub={
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Trophy size={11} style={{ color: 'var(--color-primary)' }} />
+                {topAgents.length}
+              </span>
+            }
+          />
+          <div style={s.leaderboard}>
             {topAgents.map((p, i) => {
               const score = p.overallScore ?? 0
+              const rankColor = RANK_COLORS[i] || 'var(--color-text-muted)'
               return (
-                <div
+                <Card
                   key={p.agentId}
-                  style={styles.leaderRow}
+                  hoverable
                   onClick={() => navigate(`/agents/${p.agentId}/profile`)}
+                  style={{
+                    ...s.leaderRow,
+                    animationDelay: `${(i + 5) * 40}ms`,
+                  }}
                 >
-                  <div style={styles.leaderLeft}>
+                  <div style={s.leaderLeft}>
                     <span style={{
-                      ...styles.leaderRank,
-                      color: i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#c2884d' : 'var(--color-text-muted)'
+                      ...s.leaderRank,
+                      color: rankColor,
                     }}>
-                      #{i + 1}
+                      {i < 3 ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Zap size={12} fill={rankColor} />
+                          {i + 1}
+                        </span>
+                      ) : (
+                        `#${i + 1}`
+                      )}
                     </span>
-                    <span style={styles.leaderName}>{p.agentName || p.agentId}</span>
+                    <span style={s.leaderName}>{p.agentName || p.agentId}</span>
                   </div>
-                  <div style={styles.leaderRight}>
-                    <span style={styles.leaderMetric}>
+                  <div style={s.leaderRight}>
+                    <Badge variant='tag' color={rankColor}>
                       <Target size={10} /> {score}
-                    </span>
-                    <span style={styles.leaderMetric}>
-                      <Activity size={10} /> {p.totalTasks} tasks
-                    </span>
+                    </Badge>
+                    <Badge variant='count'>
+                      {p.totalTasks} tasks
+                    </Badge>
                   </div>
-                </div>
+                </Card>
               )
             })}
           </div>
         </div>
       )}
 
-      {/* Agents section */}
-      <div style={styles.agentsSection}>
-        <div style={styles.agentsHeader}>
-          <span style={styles.agentsTitle}>Agents</span>
-          <span style={styles.agentsCount}>{agents.length}</span>
-        </div>
+      {/* Agent Grid */}
+      <div style={{ ...s.section, animationDelay: '400ms' }}>
+        <SectionHeader
+          title='Agents'
+          sub={
+            <Badge variant='count' color='var(--color-primary)'>
+              {agents.length}
+            </Badge>
+          }
+        />
 
-        {agents.length === 0 ? (
-          <EmptyState
-            icon={Bot}
-            title='No agents registered'
-            description='Start worker agents to see them appear here'
-          />
+        {loading ? (
+          <div style={s.agentGrid}>
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} variant='rect' height={160} style={{ animationDelay: `${(i + 10) * 40}ms` }} />
+            ))}
+          </div>
+        ) : agents.length === 0 ? (
+          <Card>
+            <div style={s.emptyInner}>
+              <Bot size={32} strokeWidth={1.5} style={{ opacity: 0.4, color: 'var(--color-text-muted)' }} />
+              <span style={s.emptyTitle}>No agents registered</span>
+              <span style={s.emptyDesc}>Start worker agents to see them appear here</span>
+            </div>
+          </Card>
         ) : (
-          <div style={styles.agentGrid}>
-            {agents.map((agent) => (
-              <AgentCard key={agent.agentId} agent={agent} onClick={() => navigate(`/agents/${agent.agentId}`)} />
+          <div style={s.agentGrid}>
+            {agents.map((agent, i) => (
+              <div
+                key={agent.agentId}
+                style={{ ...s.agentItem, animationDelay: `${(i + 12) * 40}ms` }}
+              >
+                <AgentCard agent={agent} onClick={() => navigate(`/agents/${agent.agentId}`)} />
+              </div>
             ))}
           </div>
         )}
@@ -161,182 +210,97 @@ export function Overview () {
   )
 }
 
-function StatCard ({ icon, label, value, sub, accentColor, accentDim }) {
-  return (
-    <div style={{ ...styles.statCard, borderColor: accentColor + '22' }}>
-      <div style={{
-        ...styles.statIcon,
-        background: accentDim,
-        color: accentColor
-      }}
-      >
-        {icon}
-      </div>
-      <div style={styles.statContent}>
-        <div style={styles.statLabel}>{label}</div>
-        <div style={styles.statValue}>{value}</div>
-        <div style={styles.statSub}>{sub}</div>
-      </div>
-    </div>
-  )
-}
-
-const styles = {
+const s = {
   page: {
     display: 'flex',
     flexDirection: 'column',
     gap: 24,
-    animation: 'fadeIn 0.3s ease-out'
   },
-  sectionTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16
-  },
-  sectionTitleText: {
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: '-0.03em',
-    whiteSpace: 'nowrap'
-  },
-  titleLine: {
-    flex: 1,
-    height: 1,
-    background: 'linear-gradient(90deg, var(--color-border), transparent)'
-  },
-
-  /* Stats row */
   statsRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-    gap: 16
+    gap: 12,
   },
-  statCard: {
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    padding: '16px 20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    transition: 'border-color 0.2s'
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
-  },
-  statContent: {
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0
-  },
-  statLabel: {
-    fontSize: 11,
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    fontWeight: 500
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 700,
-    fontFamily: "'IBM Plex Mono', 'SF Mono', monospace",
-    lineHeight: 1.2,
-    letterSpacing: '-0.04em'
-  },
-  statSub: {
-    fontSize: 11,
-    color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+  statItem: {
+    animation: 'fadeIn 0.4s var(--ease-out) both',
   },
 
   /* Section */
   section: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 12
+    gap: 12,
+    animation: 'fadeIn 0.4s var(--ease-out) both',
   },
 
   /* Leaderboard */
   leaderboard: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6
+    gap: 6,
   },
   leaderRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '12px 16px',
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
-    cursor: 'pointer',
-    transition: 'all 0.15s'
+    animation: 'fadeIn 0.4s var(--ease-out) both',
   },
   leaderLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12
+    gap: 12,
+    minWidth: 0,
   },
   leaderRank: {
     fontSize: 14,
     fontWeight: 700,
     fontFamily: "'IBM Plex Mono', monospace",
-    width: 28
+    width: 36,
+    flexShrink: 0,
   },
   leaderName: {
     fontSize: 13,
     fontWeight: 600,
-    color: 'var(--color-text)'
+    color: 'var(--color-text)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   leaderRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: 16
-  },
-  leaderMetric: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-    fontSize: 11,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-text-secondary)'
+    gap: 8,
+    flexShrink: 0,
   },
 
-  /* Agents section */
-  agentsSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16
-  },
-  agentsHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10
-  },
-  agentsTitle: {
-    fontSize: 15,
-    fontWeight: 600,
-    letterSpacing: '-0.02em'
-  },
-  agentsCount: {
-    fontSize: 11,
-    fontFamily: "'IBM Plex Mono', monospace",
-    color: 'var(--color-text-muted)',
-    background: 'var(--color-surface)',
-    padding: '2px 8px',
-    borderRadius: 10,
-    border: '1px solid var(--color-border)'
-  },
+  /* Agent grid */
   agentGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 12
-  }
+    gap: 12,
+  },
+  agentItem: {
+    animation: 'fadeIn 0.4s var(--ease-out) both',
+  },
+
+  /* Empty state */
+  emptyInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '48px 24px',
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: 'var(--color-text-muted)',
+  },
+  emptyDesc: {
+    fontSize: 13,
+    color: 'var(--color-text-muted)',
+    opacity: 0.7,
+  },
 }

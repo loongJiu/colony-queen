@@ -7,6 +7,7 @@ import { Agents } from './pages/Agents'
 import { AgentDetail } from './pages/AgentDetail'
 import { AgentProfile } from './pages/AgentProfile'
 import { Sessions } from './pages/Sessions'
+import { SessionDetail } from './pages/SessionDetail'
 
 export default function App () {
   return (
@@ -19,6 +20,7 @@ export default function App () {
         <Route path='/agents/:agentId' element={<AgentDetail />} />
         <Route path='/agents/:agentId/profile' element={<AgentProfile />} />
         <Route path='/sessions' element={<Sessions />} />
+        <Route path='/sessions/:sessionId' element={<SessionDetail />} />
         <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
     </Layout>

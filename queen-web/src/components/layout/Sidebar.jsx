@@ -1,10 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Bot, FolderTree } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Users, FolderTree } from 'lucide-react'
 
 const links = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
   { to: '/tasks', icon: ListTodo, label: 'Tasks' },
-  { to: '/agents', icon: Bot, label: 'Agents' },
+  { to: '/agents', icon: Users, label: 'Agents' },
   { to: '/sessions', icon: FolderTree, label: 'Sessions' }
 ]
 
@@ -12,18 +12,18 @@ export function Sidebar () {
   const location = useLocation()
 
   return (
-    <aside style={styles.sidebar}>
+    <aside style={s.sidebar}>
       {/* Logo */}
-      <div style={styles.logo}>
-        <span style={styles.logoIcon}>&#x1F41D;</span>
-        <div style={styles.logoText}>
-          <span style={styles.logoTitle}>Colony</span>
-          <span style={styles.logoSub}>Queen</span>
+      <div style={s.logo}>
+        <span style={s.logoIcon}>&#x1F41D;</span>
+        <div style={s.logoText}>
+          <span style={s.logoTitle}>Colony</span>
+          <span style={s.logoSub}>Queen</span>
         </div>
       </div>
 
       {/* Nav */}
-      <nav style={styles.nav}>
+      <nav style={s.nav}>
         {links.map(({ to, icon: Icon, label }) => {
           const isActive = location.pathname === to
           return (
@@ -31,35 +31,45 @@ export function Sidebar () {
               key={to}
               to={to}
               style={{
-                ...styles.link,
-                ...(isActive ? styles.activeLink : {})
+                ...s.link,
+                ...(isActive ? s.activeLink : {})
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'var(--color-sidebar-hover)'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent'
+                }
               }}
             >
               <Icon size={16} strokeWidth={isActive ? 2 : 1.5} />
               <span>{label}</span>
-              {isActive && <div style={styles.activeBar} />}
+              {isActive && <div style={s.activeBar} />}
             </NavLink>
           )
         })}
       </nav>
 
       {/* Footer */}
-      <div style={styles.footer}>
-        <div style={styles.footerLine} />
-        <span style={styles.version}>v0.1.0</span>
+      <div style={s.footer}>
+        <div style={s.footerLine} />
+        <span style={s.version}>v1.0.0</span>
       </div>
     </aside>
   )
 }
 
-const styles = {
+const s = {
   sidebar: {
     width: 'var(--sidebar-width)',
     height: '100vh',
     position: 'fixed',
     left: 0,
     top: 0,
-    background: 'var(--color-surface)',
+    background: 'var(--color-sidebar-bg)',
     borderRight: '1px solid var(--color-border)',
     display: 'flex',
     flexDirection: 'column',
@@ -83,7 +93,9 @@ const styles = {
   logoTitle: {
     fontSize: 16,
     fontWeight: 700,
-    letterSpacing: '-0.03em'
+    fontFamily: "'Syne', 'DM Sans', sans-serif",
+    letterSpacing: '-0.03em',
+    color: 'var(--color-text)'
   },
   logoSub: {
     fontSize: 10,
@@ -108,13 +120,13 @@ const styles = {
     fontSize: 13,
     fontWeight: 500,
     color: 'var(--color-text-secondary)',
-    transition: 'all 0.15s',
+    transition: 'all var(--duration-fast) var(--ease-default)',
     position: 'relative',
     textDecoration: 'none'
   },
   activeLink: {
     color: 'var(--color-text)',
-    background: 'var(--color-surface-hover)'
+    background: 'var(--color-sidebar-active)'
   },
   activeBar: {
     position: 'absolute',

@@ -44,11 +44,11 @@ export function Layout ({ children }) {
   }, [])
 
   return (
-    <div style={styles.shell}>
+    <div style={s.shell}>
       <Sidebar />
-      <div style={styles.main}>
+      <div style={s.main}>
         <Header />
-        <main style={styles.content}>
+        <main style={s.content}>
           {children}
         </main>
       </div>
@@ -56,21 +56,23 @@ export function Layout ({ children }) {
   )
 }
 
-const styles = {
+const s = {
   shell: {
     display: 'flex',
-    minHeight: '100vh'
+    height: '100vh',
+    overflow: 'hidden'
   },
   main: {
     flex: 1,
     marginLeft: 'var(--sidebar-width)',
     display: 'flex',
     flexDirection: 'column',
-    minHeight: '100vh'
+    height: '100vh',
+    overflow: 'hidden'
   },
   content: {
     flex: 1,
     padding: 24,
-    overflow: 'auto'
+    overflowY: 'auto'
   }
 }
