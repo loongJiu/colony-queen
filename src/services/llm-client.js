@@ -57,6 +57,16 @@ export class LLMClient {
     return this.#apiKey !== ''
   }
 
+  /** @returns {string} */
+  get provider() {
+    return this.#provider
+  }
+
+  /** @returns {string} */
+  get model() {
+    return this.#model
+  }
+
   /**
    * 发送补全请求
    *

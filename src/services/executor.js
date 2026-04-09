@@ -8,6 +8,7 @@
  */
 
 import { createStepResult } from '../models/task.js'
+import { merge } from '../core/aggregator.js'
 
 export class Executor {
   /** @type {import('../core/scheduler.js').Scheduler} */
@@ -70,13 +71,10 @@ export class Executor {
 
     this.#emitLog(task.taskId, 'executor', `任务开始执行，策略: ${task.strategy}，共 ${task.steps.length} 步`)
 
-    // 重放规划阶段日志
+    // 重放规划阶段日志（持久化到 #taskLogs）
     if (task.planLogs?.length > 0) {
       for (const log of task.planLogs) {
-        this.#eventBus?.emit('task.log', {
-          taskId: task.taskId,
-          source: log.source || 'planner',
-          message: log.message,
+        this.#emitLog(task.taskId, log.source || 'planner', log.message, {
           timestamp: log.timestamp
         })
       }
@@ -104,6 +102,12 @@ export class Executor {
           break
         default:
           final = this.#updateTask(running, { status: 'failure', finishedAt: Date.now() })
+      }
+
+      // 任务终态时计算 finalOutput 并写入 TaskRecord，SSE 即时推送
+      if (['success', 'failure', 'partial'].includes(final.status) && final.results?.length > 0) {
+        const aggregated = merge(final)
+        final = this.#updateTask(final, { finalOutput: aggregated.output })
       }
 
       return final
@@ -215,7 +219,7 @@ export class Executor {
       const prevOutput = i > 0 && results[i - 1]?.status === 'success'
         ? results[i - 1].output
         : undefined
-      const stepInput = i === 0 ? task.request?.input : prevOutput
+      const stepInput = i === 0 ? (task.request?.input ?? task.request?.description) : prevOutput
 
       log.info({ stepIndex: i, capability: step.capability }, 'serial step start')
       this.#emitLog(task.taskId, 'executor', `串行步骤 ${i + 1}/${task.steps.length} 开始，能力: ${step.capability}`, { stepIndex: i, capability: step.capability })
@@ -317,7 +321,7 @@ export class Executor {
 
     const promises = task.steps.map(step =>
       this.#executeStep(
-        { ...step, input: step.input ?? task.request?.input },
+        { ...step, input: step.input ?? task.request?.input ?? task.request?.description },
         task.conversationId,
         task.taskId,
         abortController,
@@ -368,7 +372,7 @@ export class Executor {
     this.#emitLog(task.taskId, 'executor', `步骤开始，能力: ${step.capability}`, { stepIndex: step.stepIndex })
 
     const stepResult = await this.#executeStep(
-      { ...step, input: step.input ?? task.request?.input },
+      { ...step, input: step.input ?? task.request?.input ?? task.request?.description },
       task.conversationId,
       task.taskId,
       abortController,
