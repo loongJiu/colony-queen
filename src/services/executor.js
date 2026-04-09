@@ -33,14 +33,6 @@ export class Executor {
   #defaultTimeout
 
   /**
-   * @param {{
-   *   scheduler: import('../core/scheduler.js').Scheduler,
-   *   retryService?: import('./retry.js').RetryService,
-   *   logger?: Object,
-   *   defaultTimeoutMs?: number
-   * }} deps
-   */
-  /**
    * @type {number} 最大重试次数
    */
   #maxRetry
@@ -48,13 +40,17 @@ export class Executor {
   /** @type {import('../utils/event-bus.js').EventBus | null} */
   #eventBus
 
-  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null }) {
+  /** @type {import('./llm-client.js').LLMClient | null} */
+  #llmClient
+
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null, llmClient = null }) {
     this.#scheduler = scheduler
     this.#retryService = retryService
     this.#logger = logger
     this.#defaultTimeout = defaultTimeoutMs
     this.#maxRetry = maxRetry
     this.#eventBus = eventBus
+    this.#llmClient = llmClient
   }
 
   /**
@@ -106,8 +102,15 @@ export class Executor {
 
       // 任务终态时计算 finalOutput 并写入 TaskRecord，SSE 即时推送
       if (['success', 'failure', 'partial'].includes(final.status) && final.results?.length > 0) {
-        const aggregated = merge(final)
-        final = this.#updateTask(final, { finalOutput: aggregated.output })
+        let finalOutput
+        // 多步任务：用 LLM 综合所有步骤结果，生成针对原始问题的回答
+        if (final.results.length > 1 && final.status !== 'failure' && this.#llmClient?.isConfigured) {
+          finalOutput = await this.#synthesizeResult(final)
+        } else {
+          const aggregated = merge(final)
+          finalOutput = aggregated.output
+        }
+        final = this.#updateTask(final, { finalOutput })
       }
 
       return final
@@ -219,7 +222,11 @@ export class Executor {
       const prevOutput = i > 0 && results[i - 1]?.status === 'success'
         ? results[i - 1].output
         : undefined
-      const stepInput = i === 0 ? (task.request?.input ?? task.request?.description) : prevOutput
+      // 第一步：用原始描述；后续步骤：原始描述 + 前一步输出
+      const originalDesc = task.request?.input ?? task.request?.description
+      const stepInput = i === 0
+        ? originalDesc
+        : { originalRequest: task.request?.description, previousOutput: prevOutput }
 
       log.info({ stepIndex: i, capability: step.capability }, 'serial step start')
       this.#emitLog(task.taskId, 'executor', `串行步骤 ${i + 1}/${task.steps.length} 开始，能力: ${step.capability}`, { stepIndex: i, capability: step.capability })
@@ -693,5 +700,48 @@ export class Executor {
     return agent.constraints?.timeout_default != null
       ? agent.constraints.timeout_default * 1000
       : taskTimeoutMs
+  }
+
+  /**
+   * 用 LLM 综合多步执行结果，生成针对用户原始问题的回答
+   *
+   * @param {import('../models/task.js').TaskRecord} task
+   * @returns {Promise<string|null>}
+   */
+  async #synthesizeResult(task) {
+    const successes = task.results.filter(r => r.status === 'success')
+    if (successes.length === 0) return null
+
+    const stepsSummary = task.steps.map((step, i) => {
+      const result = successes.find(r => r.stepIndex === step.stepIndex || r.stepIndex === i)
+      const output = result?.output
+      return `### 步骤 ${i + 1}: ${step.capability}\n${typeof output === 'string' ? output : JSON.stringify(output, null, 2)}`
+    }).join('\n\n')
+
+    const systemPrompt = `你是 Colony 多智能体系统的结果综合器。
+多个 Agent 分别完成了不同的子任务，你需要将它们的结果整合为一个连贯、完整的回答。
+直接回答用户的原始问题，不要提及"Agent"、"步骤"等内部实现细节。`
+
+    const userPrompt = `用户原始需求: ${task.request?.description}
+
+各步骤执行结果:
+${stepsSummary}
+
+请综合以上结果，直接回答用户的问题。`
+
+    try {
+      this.#emitLog(task.taskId, 'executor', '正在综合各步骤结果...')
+      const synthesized = await this.#llmClient.complete(userPrompt, {
+        systemPrompt,
+        temperature: 0.3
+      })
+      this.#emitLog(task.taskId, 'executor', '结果综合完成')
+      return synthesized
+    } catch (err) {
+      this.#logger.warn({ err: err.message, taskId: task.taskId }, 'LLM synthesis failed, falling back to raw merge')
+      this.#emitLog(task.taskId, 'executor', `结果综合失败(${err.message})，使用原始聚合`)
+      const aggregated = merge(task)
+      return aggregated.output
+    }
   }
 }

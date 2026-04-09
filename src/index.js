@@ -70,7 +70,8 @@ const executor = new Executor({
   logger: app.log,
   defaultTimeoutMs: config.TASK_DEFAULT_TIMEOUT_S * 1000,
   maxRetry: config.SCHEDULER_MAX_RETRY,
-  eventBus
+  eventBus,
+  llmClient
 })
 app.decorate('executor', executor)
 

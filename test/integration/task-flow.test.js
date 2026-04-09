@@ -114,8 +114,8 @@ describe('Task Flow Integration', () => {
             })
           }
         }
-        // 第二步应该收到第一步的 output 作为 input
-        expect(body.task.input).toEqual({ raw_data: [1, 2, 3] })
+        // 第二步应该收到第一步的 output 作为 input（包装在 previousOutput 中）
+        expect(body.task.input.previousOutput).toEqual({ raw_data: [1, 2, 3] })
         return {
           ok: true,
           json: async () => ({

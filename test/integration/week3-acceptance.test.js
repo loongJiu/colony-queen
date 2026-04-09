@@ -142,8 +142,8 @@ describe('Week 3 验收', () => {
       expect(calls[0].type).toBe('task_assign')
       expect(calls[0].input).toEqual({ query: '市场趋势报告', year: 2026 })
       expect(calls[1].type).toBe('task_assign')
-      // 第二步应该收到第一步的 output
-      expect(calls[1].input.total).toBe(2)
+      // 第二步应该收到第一步的 output（包装在 previousOutput 中）
+      expect(calls[1].input.previousOutput.total).toBe(2)
 
       // 8. 聚合结果
       const aggregated = merge(result)
