@@ -13,8 +13,13 @@ import { RetryService } from './services/retry.js'
 import { TaskRescheduler } from './services/rescheduler.js'
 import { createStorage } from './storage/index.js'
 import { FeedbackService } from './services/feedback-service.js'
+import { PlanMemory } from './services/plan-memory.js'
+import { ProfileUpdater } from './services/profile-updater.js'
+import { CircuitBreaker } from './services/circuit-breaker.js'
+import { SessionService } from './services/session-service.js'
 import colonyRoutes from './handlers/colony.js'
 import taskRoutes from './handlers/task.js'
+import sessionRoutes from './handlers/session.js'
 import adminRoutes from './handlers/admin.js'
 import streamRoutes from './handlers/stream.js'
 
@@ -36,9 +41,24 @@ app.decorate('hive', hive)
 const waggle = new Waggle({ maxSize: config.WAGGLE_QUEUE_MAX_SIZE, logger: app.log })
 app.decorate('waggle', waggle)
 
+// 初始化 CircuitBreaker 熔断器
+const circuitBreaker = new CircuitBreaker()
+
 // 初始化 Scheduler 调度器
-const scheduler = new Scheduler({ hive })
+const scheduler = new Scheduler({ hive, circuitBreaker })
 app.decorate('scheduler', scheduler)
+
+// 初始化存储层
+const store = createStorage({
+  backend: config.STORAGE_BACKEND,
+  ...(config.STORAGE_BACKEND === 'sqlite' && { path: config.SQLITE_PATH })
+})
+
+// 初始化 PlanMemory 规划记忆
+const planMemory = new PlanMemory({ store, logger: app.log })
+
+// 初始化 ProfileUpdater 能力画像更新器
+const profileUpdater = new ProfileUpdater({ store })
 
 // 初始化 LLMClient
 const llmClient = new LLMClient({
@@ -57,6 +77,7 @@ const planner = new Planner({
   hive,
   llmClient,
   fallbackEnabled: config.PLANNER_FALLBACK_ENABLED,
+  planMemory,
   logger: app.log
 })
 app.decorate('planner', planner)
@@ -65,21 +86,24 @@ app.decorate('planner', planner)
 const retryService = new RetryService()
 app.decorate('retryService', retryService)
 
-// 初始化存储层
-const store = createStorage({
-  backend: config.STORAGE_BACKEND,
-  ...(config.STORAGE_BACKEND === 'sqlite' && { path: config.SQLITE_PATH })
-})
-
 // 初始化 FeedbackService 反馈服务
 const feedbackService = new FeedbackService({
   eventBus,
   waggle,
   hive,
   store,
+  planMemory,
+  profileUpdater,
   logger: app.log
 })
 app.decorate('feedbackService', feedbackService)
+
+// 初始化 SessionService 工作会话服务
+const sessionService = new SessionService({
+  store,
+  logger: app.log
+})
+app.decorate('sessionService', sessionService)
 
 // 初始化 Executor 任务执行器
 const executor = new Executor({
@@ -90,7 +114,8 @@ const executor = new Executor({
   maxRetry: config.SCHEDULER_MAX_RETRY,
   eventBus,
   llmClient,
-  feedbackService
+  feedbackService,
+  circuitBreaker
 })
 app.decorate('executor', executor)
 
@@ -140,7 +165,8 @@ app.get('/health', async () => {
 
 // 注册路由
 app.register(colonyRoutes, { hive, waggle, colonyToken: config.COLONY_TOKEN, eventBus })
-app.register(taskRoutes, { planner, executor, hive, eventBus, feedbackService })
+app.register(taskRoutes, { planner, executor, hive, eventBus, feedbackService, sessionService })
+app.register(sessionRoutes, { sessionService })
 
 // 启动心跳监控
 const heartbeatMonitor = new HeartbeatMonitor({
@@ -172,6 +198,16 @@ app.addHook('onReady', async () => {
   // 初始化存储层
   await store.init()
   app.log.info({ backend: config.STORAGE_BACKEND }, 'Storage initialized')
+
+  // 刷新 Scheduler 画像缓存
+  await scheduler.refreshProfiles()
+  app.log.info('Scheduler profiles refreshed')
+
+  // 订阅画像更新事件，同步 Scheduler 缓存
+  eventBus.on('profile.updated', (profile) => {
+    scheduler.updateProfileCache(profile)
+  })
+
   // 启动任务重调度器
   rescheduler.start()
   app.log.info('TaskRescheduler started')

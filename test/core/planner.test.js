@@ -364,4 +364,73 @@ describe('Planner.analyzePlan with LLM', () => {
     expect(plan.strategy).toBe('single')
     expect(plan.steps[0].capability).toBe('search')
   })
+
+  it('injects few-shot context from planMemory into LLM prompt', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = JSON.stringify({
+      strategy: 'single',
+      steps: [{ capability: 'search', description: '搜索相关资料' }]
+    })
+    const llmClient = makeMockLLMClient(llmResponse)
+
+    const planMemory = {
+      buildFewShotContext: vi.fn(async () => '## 历史成功案例参考\n### 参考案例 1\n任务: 搜索\n规划: {"strategy":"single","steps":[]}'),
+      recordPending: vi.fn(async () => {})
+    }
+
+    const planner = new Planner({ hive, llmClient, planMemory, logger: { warn: vi.fn() } })
+    const plan = await planner.analyzePlan('搜索资料')
+
+    expect(planMemory.buildFewShotContext).toHaveBeenCalledWith('搜索资料', 3)
+    expect(llmClient.complete).toHaveBeenCalledTimes(1)
+    // 验证 few-shot 被注入到 system prompt 中
+    const callArgs = llmClient.complete.mock.calls[0]
+    expect(callArgs[1].systemPrompt).toContain('历史成功案例参考')
+    expect(planMemory.recordPending).toHaveBeenCalled()
+    expect(plan.strategy).toBe('single')
+  })
+
+  it('works normally when planMemory.buildFewShotContext throws', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = JSON.stringify({
+      strategy: 'single',
+      steps: [{ capability: 'search', description: '搜索' }]
+    })
+    const llmClient = makeMockLLMClient(llmResponse)
+
+    const planMemory = {
+      buildFewShotContext: vi.fn(async () => { throw new Error('DB down') }),
+      recordPending: vi.fn(async () => {})
+    }
+
+    const logger = { warn: vi.fn() }
+    const planner = new Planner({ hive, llmClient, planMemory, logger })
+    const plan = await planner.analyzePlan('搜索')
+
+    expect(plan.strategy).toBe('single')
+    expect(logger.warn).toHaveBeenCalled()
+  })
+
+  it('works normally when planMemory is null', async () => {
+    const hive = new Hive()
+    hive.register(makeSpec({ capabilities: ['search'] }), 'sess_1')
+
+    const llmResponse = JSON.stringify({
+      strategy: 'single',
+      steps: [{ capability: 'search', description: '搜索' }]
+    })
+    const llmClient = makeMockLLMClient(llmResponse)
+
+    const planner = new Planner({ hive, llmClient, planMemory: null, logger: { warn: vi.fn() } })
+    const plan = await planner.analyzePlan('搜索')
+
+    expect(plan.strategy).toBe('single')
+    // system prompt 不应包含 few-shot 区域
+    const callArgs = llmClient.complete.mock.calls[0]
+    expect(callArgs[1].systemPrompt).not.toContain('历史成功案例参考')
+  })
 })

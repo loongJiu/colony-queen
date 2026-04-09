@@ -27,21 +27,31 @@ export class FeedbackService {
   /** @type {Object} */
   #logger
 
+  /** @type {import('./plan-memory.js').PlanMemory | null} */
+  #planMemory
+
+  /** @type {import('./profile-updater.js').ProfileUpdater | null} */
+  #profileUpdater
+
   /**
    * @param {{
    *   eventBus?: import('../utils/event-bus.js').EventBus,
    *   waggle?: import('../core/waggle.js').Waggle,
    *   hive?: import('../core/hive.js').Hive,
    *   store?: Object,
+   *   planMemory?: import('./plan-memory.js').PlanMemory,
+   *   profileUpdater?: import('./profile-updater.js').ProfileUpdater,
    *   logger?: Object
    * }} deps
    */
-  constructor({ eventBus = null, waggle = null, hive = null, store = null, logger = console } = {}) {
+  constructor({ eventBus = null, waggle = null, hive = null, store = null, planMemory = null, profileUpdater = null, logger = console } = {}) {
     this.#scorer = new FeedbackScorer()
     this.#eventBus = eventBus
     this.#waggle = waggle
     this.#hive = hive
     this.#store = store
+    this.#planMemory = planMemory
+    this.#profileUpdater = profileUpdater
     this.#logger = logger
   }
 
@@ -92,6 +102,16 @@ export class FeedbackService {
 
     // 事件通知
     this.#eventBus?.emit('feedback.created', feedback)
+
+    // 异步更新关联的 planCase 评分（降级：不影响主流程）
+    if (this.#planMemory) {
+      this.#planMemory.updateScoreByTaskId(task.taskId, autoScoreValue).catch(() => {})
+    }
+
+    // 异步更新 Agent 能力画像（降级：不影响主流程）
+    if (this.#profileUpdater) {
+      this.#updateProfiles(task, feedback).catch(() => {})
+    }
 
     this.#logger.info({
       feedbackId: feedback.feedbackId,
@@ -156,6 +176,11 @@ export class FeedbackService {
 
     // 回传给 Agent
     this.#dispatchFeedbackToAgent(feedback)
+
+    // 异步更新 Agent 能力画像（降级：不影响主流程）
+    if (this.#profileUpdater) {
+      this.#updateProfiles(task, feedback).catch(() => {})
+    }
 
     this.#logger.info({
       feedbackId: feedback.feedbackId,
@@ -242,5 +267,44 @@ export class FeedbackService {
   async getFeedbacksByTaskId(taskId) {
     if (!this.#store) return []
     return this.#store.getFeedbacksByTaskId(taskId)
+  }
+
+  /**
+   * 异步更新 Agent 能力画像
+   *
+   * 为任务中每个成功的步骤结果更新对应 Agent 的画像。
+   *
+   * @param {import('../models/task.js').TaskRecord} task
+   * @param {import('../models/feedback.js').FeedbackRecord} feedback
+   * @returns {Promise<void>}
+   */
+  async #updateProfiles(task, feedback) {
+    if (!this.#profileUpdater) return
+
+    const results = task.results ?? []
+    for (const result of results) {
+      if (!result.agentId || result.agentId === 'unknown') continue
+
+      const capability = task.steps?.find(s => s.stepIndex === result.stepIndex)?.capability
+      if (!capability) continue
+
+      const score = feedback.finalScore ?? (result.status === 'success' ? 1.0 : 0.0)
+      const durationMs = (result.finishedAt && result.startedAt) ? result.finishedAt - result.startedAt : 0
+
+      try {
+        const updatedProfile = await this.#profileUpdater.updateOnTaskComplete({
+          agentId: result.agentId,
+          capability,
+          score,
+          success: result.status === 'success',
+          durationMs
+        })
+
+        // 同步更新 Scheduler 画像缓存
+        this.#eventBus?.emit('profile.updated', updatedProfile)
+      } catch (err) {
+        this.#logger.warn({ err: err.message, agentId: result.agentId, capability }, 'failed to update profile')
+      }
+    }
   }
 }

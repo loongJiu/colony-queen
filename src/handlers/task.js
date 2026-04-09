@@ -21,19 +21,37 @@ import { NotFoundError, ValidationError } from '../utils/errors.js'
  *   planner: import('../core/planner.js').Planner,
  *   executor: import('../services/executor.js').Executor,
  *   hive: import('../core/hive.js').Hive,
- *   feedbackService?: import('../services/feedback-service.js').FeedbackService
+ *   feedbackService?: import('../services/feedback-service.js').FeedbackService,
+ *   sessionService?: import('../services/session-service.js').SessionService
  * }} options
  */
 export default function taskRoutes(app, options) {
-  const { planner, executor, feedbackService } = options
+  const { planner, executor, feedbackService, sessionService } = options
 
   // ── POST /task ────────────────────────────────
 
   app.post('/task', async (request, reply) => {
-    const { description, input, expected_output: expectedOutput, constraints } = request.body ?? {}
+    const {
+      description,
+      input,
+      expected_output: expectedOutput,
+      constraints,
+      session_id: sessionId,
+      reference_conversations: referenceConversations
+    } = request.body ?? {}
 
     if (!description) {
       throw new ValidationError('Missing required field: description')
+    }
+
+    // 解析跨任务引用上下文（降级：失败不影响任务提交）
+    let sessionContext = null
+    if (sessionId && referenceConversations?.length > 0 && sessionService) {
+      try {
+        sessionContext = await sessionService.resolveReferences(sessionId, referenceConversations)
+      } catch (err) {
+        request.log.warn({ err: err.message, sessionId }, 'failed to resolve session references')
+      }
     }
 
     // 0. 可用性预检
@@ -84,7 +102,15 @@ export default function taskRoutes(app, options) {
     const appLog = request.log
     setImmediate(async () => {
       try {
-        const plan = await planner.analyzePlan(description, { input, expectedOutput, constraints })
+        // 构建规划选项，注入会话上下文
+        const planOptions = {
+          input,
+          expectedOutput,
+          constraints,
+          ...(sessionContext && { sessionContext })
+        }
+
+        const plan = await planner.analyzePlan(description, planOptions)
         const task = buildTasksFromPlan(plan, {
           description,
           ...(input !== undefined && { input }),
@@ -113,6 +139,19 @@ export default function taskRoutes(app, options) {
 
         // 开始执行
         await executor.run({ ...task, taskId: planningTask.taskId })
+
+        // 任务执行完成后，将结果添加到 session（降级：不影响主流程）
+        if (sessionId && sessionService) {
+          try {
+            const completedTask = executor.getTask(planningTask.taskId)
+            if (completedTask && completedTask.conversationId) {
+              const keyOutput = sessionService.extractKeyOutput(completedTask)
+              await sessionService.addConversation(sessionId, completedTask.conversationId, keyOutput)
+            }
+          } catch (err) {
+            appLog.warn({ err: err.message, sessionId, taskId: planningTask.taskId }, 'failed to add task result to session')
+          }
+        }
       } catch (err) {
         appLog.error({ err, taskId: planningTask.taskId }, 'Task planning failed')
         executor.updateTaskStatus(planningTask.taskId, {

@@ -23,6 +23,45 @@
  * - getFeedbacksByAgentId(agentId, options?): Promise<FeedbackRecord[]>
  *   按 agentId 查询反馈历史，支持 limit/offset 分页
  *
+ * ### PlanCase 操作
+ * - insertPlanCase(record): Promise<PlanCaseRecord>
+ *   插入一条规划案例
+ *
+ * - getPlanCaseById(caseId): Promise<PlanCaseRecord | null>
+ *   按 caseId 查询单条规划案例
+ *
+ * - searchSimilarCases(inputText, options?): Promise<PlanCaseRecord[]>
+ *   按关键词搜索相似的已确认规划案例，支持 limit/minScore 过滤
+ *
+ * - updatePlanCase(caseId, updates): Promise<PlanCaseRecord | null>
+ *   更新规划案例（score, status, usedCount 等字段）
+ *
+ * - getRecentCases(options?): Promise<PlanCaseRecord[]>
+ *   获取最近的规划案例，按 createdAt DESC 排序
+ *
+ * ### CapabilityProfile 操作
+ * - upsertProfile(profile): Promise<CapabilityProfile>
+ *   插入或更新 Agent 能力画像
+ *
+ * - getProfile(agentId, capability): Promise<CapabilityProfile | null>
+ *   按 agentId + capability 查询画像
+ *
+ * - getRecentScores(agentId, capability, limit): Promise<number[]>
+ *   获取 Agent 在某能力下最近的评分列表
+ *
+ * ### WorkSession 操作
+ * - insertSession(record): Promise<WorkSessionRecord>
+ *   插入一条工作会话记录
+ *
+ * - getSession(sessionId): Promise<WorkSessionRecord | null>
+ *   按 sessionId 查询工作会话
+ *
+ * - updateSession(sessionId, updates): Promise<WorkSessionRecord | null>
+ *   更新工作会话（title, conversationIds, keyOutputs, sharedContext, status 等字段）
+ *
+ * - listSessions(options?): Promise<WorkSessionRecord[]>
+ *   列出工作会话，支持 limit/offset/status 过滤
+ *
  * ## 设计原则
  * 1. 所有方法返回 Promise（即使是同步实现），保持接口一致
  * 2. 数据写入后返回冻结的不可变对象（与 model 层风格一致）
@@ -36,7 +75,19 @@ export const STORAGE_METHODS = [
   'insertFeedback',
   'getFeedbackById',
   'getFeedbacksByTaskId',
-  'getFeedbacksByAgentId'
+  'getFeedbacksByAgentId',
+  'insertPlanCase',
+  'getPlanCaseById',
+  'searchSimilarCases',
+  'updatePlanCase',
+  'getRecentCases',
+  'upsertProfile',
+  'getProfile',
+  'getRecentScores',
+  'insertSession',
+  'getSession',
+  'updateSession',
+  'listSessions'
 ]
 
 /**

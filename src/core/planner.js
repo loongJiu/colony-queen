@@ -115,19 +115,23 @@ export class Planner {
   #fallbackEnabled
   /** @type {object} */
   #logger
+  /** @type {import('../services/plan-memory.js').PlanMemory | null} */
+  #planMemory
 
   /**
    * @param {{
    *   hive: import('./hive.js').Hive,
    *   llmClient?: import('../services/llm-client.js').LLMClient | null,
    *   fallbackEnabled?: boolean,
+   *   planMemory?: import('../services/plan-memory.js').PlanMemory | null,
    *   logger?: object
    * }} deps
    */
-  constructor({ hive, llmClient = null, fallbackEnabled = true, logger = console }) {
+  constructor({ hive, llmClient = null, fallbackEnabled = true, planMemory = null, logger = console }) {
     this.#hive = hive
     this.#llmClient = llmClient
     this.#fallbackEnabled = fallbackEnabled
+    this.#planMemory = planMemory
     this.#logger = logger
   }
 
@@ -268,16 +272,32 @@ export class Planner {
       .map(c => `- ${c.capability} (${c.agentCount}个Agent): ${c.description || c.capability}`)
       .join('\n')
 
+    // 检索历史成功案例作为 few-shot（降级：异常时跳过）
+    let fewShotSection = ''
+    try {
+      if (this.#planMemory) {
+        fewShotSection = await this.#planMemory.buildFewShotContext(description, 3)
+        if (fewShotSection) {
+          logs.push({ source: 'planner', message: '注入历史成功案例作为 few-shot 参考', timestamp: ts(), level: 'info' })
+        }
+      }
+    } catch (err) {
+      this.#logger.warn?.({ err: err.message }, 'failed to inject few-shot context, continuing without it')
+    }
+
     const systemPrompt = `你是 Colony 系统的任务规划器，负责将用户的自然语言需求拆解为可执行的步骤序列。
 
 ## 当前可用的 Agent 能力
 ${capabilityList}
+
+${fewShotSection}
 
 ## 规划规则
 1. 只能使用上面列出的 capability，禁止使用列表之外的能力
 2. 如果多个步骤之间没有数据依赖，使用 parallel 策略
 3. 如果步骤 B 需要步骤 A 的输出，使用 serial 策略
 4. 如果一个步骤即可完成，使用 single 策略
+5. 参考历史案例，但根据当前任务灵活调整，不必照搬
 
 ## 输出格式（严格 JSON，不要包含 markdown 代码块标记）
 {
@@ -302,6 +322,15 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
 
     const parsed = this.#parsePlan(raw)
     logs.push({ source: 'planner', message: `规划完成: 策略=${parsed.strategy}, 步骤=${parsed.steps.length}, 能力=[${parsed.steps.map(s => s.capability).join(', ')}]`, timestamp: ts(), level: 'info' })
+
+    // 异步记录本次规划为 pending case（降级：不影响主流程）
+    try {
+      if (this.#planMemory) {
+        this.#planMemory.recordPending(description, parsed).catch(() => {})
+      }
+    } catch {
+      // 同步异常也不影响
+    }
 
     return {
       ...parsed,

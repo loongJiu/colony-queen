@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest'
 import { SQLiteStore } from '../../src/storage/sqlite-store.js'
 import { createFeedbackRecord } from '../../src/models/feedback.js'
+import { createWorkSessionRecord } from '../../src/models/work-session.js'
 import { mkdirSync, rmSync, existsSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -196,5 +197,122 @@ describe('SQLiteStore', () => {
     expect(found.taskId).toBe('task_persist')
     expect(found.autoScore).toBe(0.85)
     await store2.close()
+  })
+
+  // ─── WorkSession 操作 ────────────────────────────────────
+
+  describe('WorkSession', () => {
+    it('inserts and retrieves a session', async () => {
+      const record = createWorkSessionRecord({ title: '竞品分析' })
+      await store.insertSession(record)
+
+      const found = await store.getSession(record.sessionId)
+      expect(found).toEqual(record)
+      expect(Object.isFrozen(found)).toBe(true)
+    })
+
+    it('returns null for non-existent sessionId', async () => {
+      const found = await store.getSession('wsess_nonexistent')
+      expect(found).toBeNull()
+    })
+
+    it('updates session conversationIds and keyOutputs', async () => {
+      const record = createWorkSessionRecord({ title: 'test' })
+      await store.insertSession(record)
+
+      const updated = await store.updateSession(record.sessionId, {
+        conversationIds: ['conv_001', 'conv_002'],
+        keyOutputs: {
+          conv_001: { type: 'output', summary: '搜索结果' },
+          conv_002: { type: 'steps', summary: '数据分析' }
+        }
+      })
+
+      expect(updated).not.toBeNull()
+      expect(updated.conversationIds).toEqual(['conv_001', 'conv_002'])
+      expect(updated.keyOutputs['conv_001'].summary).toBe('搜索结果')
+      expect(updated.keyOutputs['conv_002'].summary).toBe('数据分析')
+      expect(updated.updatedAt).toBeGreaterThanOrEqual(record.createdAt)
+    })
+
+    it('updates session sharedContext', async () => {
+      const record = createWorkSessionRecord({ title: 'test', sharedContext: { a: 1 } })
+      await store.insertSession(record)
+
+      const updated = await store.updateSession(record.sessionId, {
+        sharedContext: { a: 1, b: 2 }
+      })
+
+      expect(updated.sharedContext).toEqual({ a: 1, b: 2 })
+    })
+
+    it('updates session status', async () => {
+      const record = createWorkSessionRecord({ title: 'test' })
+      await store.insertSession(record)
+
+      const updated = await store.updateSession(record.sessionId, { status: 'archived' })
+      expect(updated.status).toBe('archived')
+    })
+
+    it('returns null when updating non-existent session', async () => {
+      const result = await store.updateSession('wsess_nonexistent', { title: 'new' })
+      expect(result).toBeNull()
+    })
+
+    it('lists sessions sorted by createdAt DESC', async () => {
+      const s1 = createWorkSessionRecord({ title: 'first' })
+      await new Promise(r => setTimeout(r, 2))
+      const s2 = createWorkSessionRecord({ title: 'second' })
+
+      await store.insertSession(s1)
+      await store.insertSession(s2)
+
+      const list = await store.listSessions()
+      expect(list).toHaveLength(2)
+      expect(list[0].sessionId).toBe(s2.sessionId)
+    })
+
+    it('filters sessions by status', async () => {
+      const s1 = createWorkSessionRecord({ title: 'active', status: 'active' })
+      const s2 = createWorkSessionRecord({ title: 'archived', status: 'archived' })
+
+      await store.insertSession(s1)
+      await store.insertSession(s2)
+
+      const active = await store.listSessions({ status: 'active' })
+      expect(active).toHaveLength(1)
+      expect(active[0].title).toBe('active')
+    })
+
+    it('supports pagination in listSessions', async () => {
+      for (let i = 0; i < 5; i++) {
+        const record = createWorkSessionRecord({ title: `session${i}` })
+        await store.insertSession(record)
+      }
+
+      const page = await store.listSessions({ limit: 2, offset: 0 })
+      expect(page).toHaveLength(2)
+    })
+
+    it('persists sessions across store instances', async () => {
+      const dbPath = join(testDir, `session-persist-${Date.now()}.db`)
+      const store1 = new SQLiteStore({ path: dbPath })
+      await store1.init()
+
+      const record = createWorkSessionRecord({
+        title: '持久化测试',
+        sharedContext: { key: 'value' }
+      })
+      await store1.insertSession(record)
+      await store1.close()
+
+      const store2 = new SQLiteStore({ path: dbPath })
+      await store2.init()
+      const found = await store2.getSession(record.sessionId)
+      expect(found).not.toBeNull()
+      expect(found.title).toBe('持久化测试')
+      expect(found.sharedContext).toEqual({ key: 'value' })
+      await store2.close()
+    })
   })
 })

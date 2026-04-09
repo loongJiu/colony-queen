@@ -46,7 +46,10 @@ export class Executor {
   /** @type {import('./feedback-service.js').FeedbackService | null} */
   #feedbackService
 
-  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null, llmClient = null, feedbackService = null }) {
+  /** @type {import('./circuit-breaker.js').CircuitBreaker | null} */
+  #circuitBreaker
+
+  constructor({ scheduler, retryService = null, logger = console, defaultTimeoutMs = 30000, maxRetry = 3, eventBus = null, llmClient = null, feedbackService = null, circuitBreaker = null }) {
     this.#scheduler = scheduler
     this.#retryService = retryService
     this.#logger = logger
@@ -55,6 +58,7 @@ export class Executor {
     this.#eventBus = eventBus
     this.#llmClient = llmClient
     this.#feedbackService = feedbackService
+    this.#circuitBreaker = circuitBreaker
   }
 
   /**
@@ -138,6 +142,11 @@ export class Executor {
         } catch (err) {
           this.#logger.warn({ err: err.message, taskId: task.taskId }, 'auto scoring failed')
         }
+      }
+
+      // 更新熔断器状态（不阻塞返回）
+      if (this.#circuitBreaker) {
+        this.#updateCircuitBreaker(final)
       }
 
       return final
@@ -912,6 +921,30 @@ ${stepsSummary}
       this.#emitLog(task.taskId, 'executor', `结果综合失败(${err.message})，使用原始聚合`)
       const aggregated = merge(task)
       return aggregated.output
+    }
+  }
+
+  /**
+   * 根据任务结果更新熔断器状态
+   *
+   * 遍历每个步骤结果，向对应 Agent 的熔断器记录成功/失败。
+   *
+   * @param {import('../models/task.js').TaskRecord} task
+   */
+  #updateCircuitBreaker(task) {
+    if (!this.#circuitBreaker) return
+
+    const seen = new Set()
+    for (const result of task.results ?? []) {
+      if (!result.agentId || result.agentId === 'unknown') continue
+      if (seen.has(result.agentId)) continue
+      seen.add(result.agentId)
+
+      if (result.status === 'success') {
+        this.#circuitBreaker.recordSuccess(result.agentId)
+      } else {
+        this.#circuitBreaker.recordFailure(result.agentId)
+      }
     }
   }
 }
