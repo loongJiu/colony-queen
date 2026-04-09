@@ -8,7 +8,13 @@ export default defineConfig({
     proxy: {
       '/admin': 'http://127.0.0.1:9009',
       '/health': 'http://127.0.0.1:9009',
-      '/task': 'http://127.0.0.1:9009'
+      '/task': {
+        target: 'http://127.0.0.1:9009',
+        // /tasks/:taskId 是前端路由，不要代理到后端
+        bypass: (req) => {
+          if (req.url?.startsWith('/tasks')) return req.url
+        }
+      }
     }
   }
 })

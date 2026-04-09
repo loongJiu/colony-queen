@@ -44,7 +44,8 @@
       "Bash(pkill -f \"node.*src/index\")",
       "Bash(sed -i '' 's|http://127.0.0.1:8001|http://127.0.0.1:9009|g' demo.mjs)",
       "Bash(sed -i '' 's|http://127.0.0.1:8001|http://127.0.0.1:9009|g' demo-tasks.mjs)",
-      "Bash(sleep 2 echo \"Backend: $\\(curl -s http://127.0.0.1:9009/health)"
+      "Bash(sleep 2 echo \"Backend: $\\(curl -s http://127.0.0.1:9009/health)",
+      "Bash(git:*)"
     ]
   }
 }

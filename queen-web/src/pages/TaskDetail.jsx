@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTaskStore } from '../stores/tasks'
 import { apiFetch } from '../api/client'
@@ -15,13 +15,16 @@ import {
 export function TaskDetail () {
   const { taskId } = useParams()
   const navigate = useNavigate()
-  const storeTask = useTaskStore((s) => s.tasks.find((t) => t.taskId === taskId))
-  const logs = useTaskStore((s) => s.taskLogs[taskId] || [])
+  const storeTaskData = useTaskStore((s) => s.tasks.find((t) => t.taskId === taskId))
+  const liveLogs = useTaskStore((s) => s.taskLogs[taskId])
 
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+
+  // API 返回的初始日志（刷新后可恢复）
+  const apiLogsRef = useRef([])
 
   // Fetch full task details via API (once per taskId)
   useEffect(() => {
@@ -33,6 +36,16 @@ export function TaskDetail () {
     apiFetch(`/task/${taskId}`)
       .then((data) => {
         if (!cancelled) {
+          if (data.logs?.length > 0) {
+            apiLogsRef.current = data.logs
+            // 初始化 store 日志（仅当 store 中还没有该任务的日志时）
+            const existing = useTaskStore.getState().taskLogs[taskId]
+            if (!existing || existing.length === 0) {
+              for (const log of data.logs) {
+                useTaskStore.getState().addLog(log)
+              }
+            }
+          }
           setTask(data)
           setLoading(false)
         }
@@ -47,10 +60,20 @@ export function TaskDetail () {
     return () => { cancelled = true }
   }, [taskId])
 
+  // 合并：API 历史 + SSE 实时日志（去重）
+  const logs = useMemo(() => {
+    const apiLogs = apiLogsRef.current
+    if (!liveLogs || liveLogs.length === 0) return apiLogs
+    if (apiLogs.length === 0) return liveLogs
+    // liveLogs 可能已包含 apiLogs（通过 addLog 初始化），直接用 liveLogs
+    return liveLogs
+  }, [liveLogs])
+
   // Merge: API data as base, store data overlays for real-time updates
-  const effectiveTask = task
-    ? { ...task, ...(storeTask || {}) }
-    : storeTask
+  const effectiveTask = useMemo(() => {
+    if (task) return { ...task, ...(storeTaskData || {}) }
+    return storeTaskData
+  }, [task, storeTaskData])
 
   const handleCancel = async () => {
     if (!window.confirm(`Cancel task ${taskId}?`)) return
@@ -233,22 +256,54 @@ export function TaskDetail () {
         <section style={styles.section}>
           <div style={styles.sectionTitle}>
             <Brain size={14} style={{ color: 'var(--color-text-muted)' }} />
-            <span style={styles.sectionTitleText}>LLM Planning Details</span>
+            <span style={styles.sectionTitleText}>
+              {effectiveTask.planInfo.method === 'llm' ? 'LLM Planning Details' : 'Keyword Planning Details'}
+            </span>
             <div style={styles.sectionLine} />
           </div>
           <div style={styles.planCard}>
             <div style={styles.planMetaRow}>
-              <span style={styles.planMetaItem}>Model: <strong>{effectiveTask.planInfo.model || '-'}</strong></span>
-              <span style={styles.planMetaItem}>Duration: <strong>{effectiveTask.planInfo.durationMs ? formatDuration(effectiveTask.planInfo.durationMs) : '-'}</strong></span>
+              <span style={styles.planMetaItem}>
+                Method: <strong style={{
+                  color: effectiveTask.planInfo.method === 'llm' ? 'var(--color-info)' : 'var(--color-primary)',
+                  background: effectiveTask.planInfo.method === 'llm' ? 'var(--color-info)15' : 'var(--color-primary-dim)',
+                  padding: '1px 6px',
+                  borderRadius: 3
+                }}>
+                  {effectiveTask.planInfo.method === 'llm' ? 'LLM' : 'Keyword'}
+                </strong>
+              </span>
+              {effectiveTask.planInfo.model && (
+                <span style={styles.planMetaItem}>Model: <strong>{effectiveTask.planInfo.model}</strong></span>
+              )}
+              {effectiveTask.planInfo.durationMs != null && (
+                <span style={styles.planMetaItem}>Duration: <strong>{formatDuration(effectiveTask.planInfo.durationMs)}</strong></span>
+              )}
               <span style={styles.planMetaItem}>
                 Fallback: <strong style={{ color: effectiveTask.planInfo.degraded ? 'var(--color-error)' : 'var(--color-success)' }}>
                   {effectiveTask.planInfo.degraded ? 'Yes' : 'No'}
                 </strong>
               </span>
             </div>
-            {effectiveTask.planInfo.summary && (
-              <p style={styles.planSummary}>{effectiveTask.planInfo.summary}</p>
+
+            {/* Keyword matching details */}
+            {effectiveTask.planInfo.method === 'keyword' && effectiveTask.planInfo.matchedKeywords?.length > 0 && (
+              <div style={styles.planSteps}>
+                <div style={styles.planStepsTitle}>Matched Keywords:</div>
+                {effectiveTask.planInfo.matchedKeywords.map((m, i) => (
+                  <div key={i} style={styles.planStepRow}>
+                    <span style={styles.planStepId}>"{m.keyword}"</span>
+                    <span style={{ ...styles.planStepText, color: 'var(--color-primary)' }}>→</span>
+                    <span style={styles.planStepText}>{m.capability}</span>
+                  </div>
+                ))}
+              </div>
             )}
+            {effectiveTask.planInfo.method === 'keyword' && (!effectiveTask.planInfo.matchedKeywords || effectiveTask.planInfo.matchedKeywords.length === 0) && (
+              <p style={styles.planSummary}>No keywords matched — used fallback capability.</p>
+            )}
+
+            {/* LLM step reasoning */}
             {effectiveTask.planInfo.steps?.length > 0 && (
               <div style={styles.planSteps}>
                 <div style={styles.planStepsTitle}>Step Reasoning:</div>

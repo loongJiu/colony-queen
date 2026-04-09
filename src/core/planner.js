@@ -53,25 +53,27 @@ const KEYWORD_CAPABILITY_MAP = {
 const SEQUENTIAL_KEYWORDS = ['然后', '之后', '再', '接着', 'then', 'after', 'and then']
 
 /**
- * 从 description 中提取能力列表
+ * 从 description 中提取能力列表（带匹配详情）
  *
  * 优先匹配 Hive 中已注册的 capability 名称，
  * 其次匹配内置关键词映射。
  *
  * @param {string} description - 任务描述
  * @param {string[]} registeredCapabilities - Hive 中已注册的能力列表
- * @returns {string[]} 匹配到的能力列表（去重，保持顺序）
+ * @returns {{ capabilities: string[], matches: Array<{ keyword: string, capability: string, source: 'capability_name' | 'keyword_map' }> }}
  */
-function extractCapabilities(description, registeredCapabilities) {
+function extractCapabilitiesWithDetails(description, registeredCapabilities) {
   const lower = description.toLowerCase()
   const seen = new Set()
-  const result = []
+  const capabilities = []
+  const matches = []
 
   // 优先匹配已注册的 capability 名称
   for (const cap of registeredCapabilities) {
     if (lower.includes(cap.toLowerCase()) && !seen.has(cap)) {
       seen.add(cap)
-      result.push(cap)
+      capabilities.push(cap)
+      matches.push({ keyword: cap, capability: cap, source: 'capability_name' })
     }
   }
 
@@ -79,11 +81,19 @@ function extractCapabilities(description, registeredCapabilities) {
   for (const [keyword, cap] of Object.entries(KEYWORD_CAPABILITY_MAP)) {
     if (lower.includes(keyword) && !seen.has(cap)) {
       seen.add(cap)
-      result.push(cap)
+      capabilities.push(cap)
+      matches.push({ keyword, capability: cap, source: 'keyword_map' })
     }
   }
 
-  return result
+  return { capabilities, matches }
+}
+
+/**
+ * 从 description 中提取能力列表（简化版，用于 precheck）
+ */
+function extractCapabilities(description, registeredCapabilities) {
+  return extractCapabilitiesWithDetails(description, registeredCapabilities).capabilities
 }
 
 /**
@@ -143,6 +153,13 @@ export class Planner {
         this.#logger.warn?.({ err: err.message }, 'LLM planning failed, falling back to rule-based')
         if (!this.#fallbackEnabled) throw err
         // 降级到规则引擎
+        const fallback = this.#ruleBased(description, true)
+        fallback.planLogs.splice(1, 0, {
+          source: 'planner',
+          message: `LLM 规划失败(${err.message})，降级到关键词匹配`,
+          timestamp: Date.now()
+        })
+        return fallback
       }
     }
 
@@ -151,7 +168,7 @@ export class Planner {
   }
 
   /**
-   * 基于规则的规划（原有逻辑）
+   * 基于规则的规划
    *
    * 规则：
    * 1. 扫描 description 中的能力关键词
@@ -160,30 +177,56 @@ export class Planner {
    * 4. 匹配到多个，有顺序依赖 → serial
    * 5. 匹配到多个，无顺序依赖 → parallel
    */
-  #ruleBased(description) {
+  #ruleBased(description, degraded = false) {
+    const logs = []
+    const ts = () => Date.now()
     const registeredCapabilities = this.#getRegisteredCapabilities()
 
-    const capabilities = extractCapabilities(description, registeredCapabilities)
+    logs.push({ source: 'planner', message: `开始关键词规则规划，已注册能力: [${registeredCapabilities.length > 0 ? registeredCapabilities.join(', ') : '(无)'}]`, timestamp: ts() })
+
+    const { capabilities, matches } = extractCapabilitiesWithDetails(description, registeredCapabilities)
+
+    // 第一轮：已注册能力名匹配
+    const nameMatches = matches.filter(m => m.source === 'capability_name')
+    if (nameMatches.length > 0) {
+      logs.push({ source: 'planner', message: `第一轮(能力名): ${nameMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts() })
+    } else {
+      logs.push({ source: 'planner', message: '第一轮(能力名): 无匹配', timestamp: ts() })
+    }
+
+    // 第二轮：关键词映射
+    const kwMatches = matches.filter(m => m.source === 'keyword_map')
+    if (kwMatches.length > 0) {
+      logs.push({ source: 'planner', message: `第二轮(关键词): ${kwMatches.map(m => `"${m.keyword}" → ${m.capability}`).join(', ')}`, timestamp: ts() })
+    } else {
+      logs.push({ source: 'planner', message: '第二轮(关键词): 无匹配', timestamp: ts() })
+    }
 
     let strategy
     let stepDescriptions
 
     if (capabilities.length === 0) {
-      // 无关键词匹配 → 使用第一个已注册能力，若无已注册能力则 fallback 到 general
       strategy = 'single'
       const fallbackCap = registeredCapabilities.length > 0 ? registeredCapabilities[0] : 'general'
       stepDescriptions = [{ capability: fallbackCap, description }]
+      logs.push({ source: 'planner', message: `未匹配到任何能力，fallback → ${fallbackCap}`, timestamp: ts() })
     } else if (capabilities.length === 1) {
       strategy = 'single'
       stepDescriptions = [{ capability: capabilities[0], description }]
+      logs.push({ source: 'planner', message: `匹配到 1 个能力: ${capabilities[0]}，策略: single`, timestamp: ts() })
     } else {
-      const isSequential = hasSequentialDependency(description)
+      const seqKeyword = SEQUENTIAL_KEYWORDS.find(kw => description.includes(kw))
+      const isSequential = !!seqKeyword
       strategy = isSequential ? 'serial' : 'parallel'
-      stepDescriptions = capabilities.map(cap => ({
-        capability: cap,
-        description: `${cap} 步骤`
-      }))
+      stepDescriptions = capabilities.map(cap => ({ capability: cap, description: `${cap} 步骤` }))
+      if (isSequential) {
+        logs.push({ source: 'planner', message: `检测到顺序关键词 "${seqKeyword}"，策略: serial`, timestamp: ts() })
+      } else {
+        logs.push({ source: 'planner', message: `无顺序依赖关键词，策略: parallel`, timestamp: ts() })
+      }
     }
+
+    logs.push({ source: 'planner', message: `规划完成: 策略=${strategy}, 步骤=${stepDescriptions.length}, 能力=[${capabilities.join(', ')}]`, timestamp: ts() })
 
     return {
       conversationId: genConvId(),
@@ -192,20 +235,33 @@ export class Planner {
         stepIndex: i,
         capability: s.capability,
         description: s.description
-      }))
+      })),
+      planInfo: {
+        method: 'keyword',
+        degraded,
+        matchedKeywords: matches.map(m => ({ keyword: m.keyword, capability: m.capability })),
+        capabilities,
+        strategy
+      },
+      planLogs: logs
     }
   }
 
   /**
    * 基于 LLM 的智能规划
-   *
-   * @param {string} description
-   * @param {Object} options
-   * @returns {Promise<{ conversationId: string, strategy: string, steps: Array }>}
    */
   async #modelBased(description, options = {}) {
+    const logs = []
+    const ts = () => Date.now()
+    const startedAt = Date.now()
+
     const capabilities = this.#hive.getAllCapabilities()
     if (capabilities.length === 0) return null
+
+    const provider = this.#llmClient.provider ?? 'unknown'
+    const model = this.#llmClient.model ?? 'unknown'
+
+    logs.push({ source: 'planner', message: `使用 LLM 规划 (${provider}/${model})`, timestamp: ts() })
 
     const capabilityList = capabilities
       .map(c => `- ${c.capability} (${c.agentCount}个Agent): ${c.description || c.capability}`)
@@ -240,7 +296,23 @@ ${options.constraints ? `约束条件: ${JSON.stringify(options.constraints)}` :
       temperature: 0.2
     })
 
-    return this.#parsePlan(raw)
+    const durationMs = Date.now() - startedAt
+    logs.push({ source: 'planner', message: `LLM 响应完成，耗时 ${durationMs}ms`, timestamp: ts() })
+
+    const parsed = this.#parsePlan(raw)
+    logs.push({ source: 'planner', message: `规划完成: 策略=${parsed.strategy}, 步骤=${parsed.steps.length}, 能力=[${parsed.steps.map(s => s.capability).join(', ')}]`, timestamp: ts() })
+
+    return {
+      ...parsed,
+      planInfo: {
+        method: 'llm',
+        model: `${provider}/${model}`,
+        degraded: false,
+        durationMs,
+        steps: parsed.steps.map(s => ({ stepId: `s${s.stepIndex + 1}`, name: s.capability, reasoning: s.description }))
+      },
+      planLogs: logs
+    }
   }
 
   /**
@@ -386,6 +458,8 @@ export function buildTasksFromPlan(plan, originalRequest) {
     conversationId: plan.conversationId,
     strategy: plan.strategy,
     request: originalRequest,
-    steps: plan.steps
+    steps: plan.steps,
+    ...(plan.planInfo && { planInfo: plan.planInfo }),
+    ...(plan.planLogs && { planLogs: plan.planLogs })
   })
 }

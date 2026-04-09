@@ -62,7 +62,7 @@ export const VALID_STRATEGIES = ['single', 'serial', 'parallel']
  * @throws {ValidationError} description 为空或 strategy 无效
  */
 export function createTaskRecord(params) {
-  const { conversationId, strategy, request, steps, parentTaskId } = params
+  const { conversationId, strategy, request, steps, parentTaskId, planInfo, planLogs } = params
 
   if (!request?.description) {
     throw new ValidationError('request.description is required')
@@ -93,7 +93,9 @@ export function createTaskRecord(params) {
     })),
     status: 'pending',
     results: [],
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    ...(planInfo != null && { planInfo }),
+    ...(planLogs != null && { planLogs })
   }
 
   return Object.freeze(record)

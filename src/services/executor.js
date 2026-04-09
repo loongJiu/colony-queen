@@ -25,6 +25,9 @@ export class Executor {
   /** @type {Map<string, AbortController>} taskId → AbortController */
   #abortControllers = new Map()
 
+  /** @type {Map<string, Array<{ taskId: string, source: string, message: string, timestamp: number }>>} taskId → 日志 */
+  #taskLogs = new Map()
+
   /** @type {number} 默认超时（ms） */
   #defaultTimeout
 
@@ -66,6 +69,18 @@ export class Executor {
     this.#logger.info({ taskId: task.taskId, strategy: task.strategy, steps: task.steps.length }, 'task execution started')
 
     this.#emitLog(task.taskId, 'executor', `任务开始执行，策略: ${task.strategy}，共 ${task.steps.length} 步`)
+
+    // 重放规划阶段日志
+    if (task.planLogs?.length > 0) {
+      for (const log of task.planLogs) {
+        this.#eventBus?.emit('task.log', {
+          taskId: task.taskId,
+          source: log.source || 'planner',
+          message: log.message,
+          timestamp: log.timestamp
+        })
+      }
+    }
 
     // 初始化：置为 running 状态，存入不可变副本
     // 保留已有的成功结果（断点续跑支持）
@@ -151,6 +166,16 @@ export class Executor {
       task.results.some(r => r.agentId === agentId) &&
       (task.status === 'running' || task.status === 'pending')
     )
+  }
+
+  /**
+   * 获取指定任务的日志
+   *
+   * @param {string} taskId
+   * @returns {Array<{ taskId: string, source: string, message: string, timestamp: number }>}
+   */
+  getTaskLogs(taskId) {
+    return this.#taskLogs.get(taskId) ?? []
   }
 
   // ── 内部执行方法 ──────────────────────────────
@@ -591,13 +616,21 @@ export class Executor {
    * @param {Object} [extra] - 额外字段
    */
   #emitLog(taskId, source, message, extra = {}) {
-    this.#eventBus?.emit('task.log', {
+    const entry = {
       taskId,
       source,
       message,
       timestamp: Date.now(),
       ...extra
-    })
+    }
+    // 持久化日志（刷新后可通过 API 获取）
+    const logs = this.#taskLogs.get(taskId)
+    if (logs) {
+      logs.push(entry)
+    } else {
+      this.#taskLogs.set(taskId, [entry])
+    }
+    this.#eventBus?.emit('task.log', entry)
   }
 
   /**

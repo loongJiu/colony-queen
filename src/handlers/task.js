@@ -102,7 +102,8 @@ export default function taskRoutes(app, options) {
     reply.status(200).send({
       type: 'task.status',
       ...task,
-      ...(finalOutput !== null && { finalOutput })
+      ...(finalOutput !== null && { finalOutput }),
+      logs: executor.getTaskLogs(taskId)
     })
   })
 

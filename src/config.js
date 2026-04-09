@@ -25,7 +25,7 @@ const schema = z.object({
   PLANNER_LLM_PROVIDER: z.enum(['glm', 'anthropic', 'openai']).default('glm'),
   PLANNER_LLM_MODEL: z.string().default('glm-4'),
   PLANNER_LLM_API_KEY: z.string().default(''),
-  PLANNER_LLM_TIMEOUT_MS: z.coerce.number().default(15000),
+  PLANNER_LLM_TIMEOUT_MS: z.coerce.number().default(180000),
   PLANNER_FALLBACK_ENABLED: z.coerce.boolean().default(true),
 
   LLM_GLM_BASE_URL: z.string().default('https://open.bigmodel.cn/api/anthropic'),
