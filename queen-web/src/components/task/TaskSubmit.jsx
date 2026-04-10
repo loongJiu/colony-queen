@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../../api/client'
+import { useRitualStore } from '../../stores/ritual'
 import {
   Send, Loader2, Sparkles,
   ChevronDown, ChevronUp,
@@ -23,6 +24,7 @@ export function TaskSubmit () {
   const [focused, setFocused] = useState(false)
   const inputRef = useRef(null)
   const navigate = useNavigate()
+  const triggerRitual = useRitualStore((s) => s.triggerRitual)
 
   const canSubmit = description.trim().length > 0 && !loading
 
@@ -36,6 +38,8 @@ export function TaskSubmit () {
         method: 'POST',
         body: JSON.stringify({ description: description.trim() })
       })
+      // 触发蜂后降旨仪式
+      triggerRitual({ variant: 'dispatch', message: '蜂后正在降下旨意...' })
       // 立即导航到任务详情页
       navigate(`/tasks/${data.task_id}`)
     } catch (err) {

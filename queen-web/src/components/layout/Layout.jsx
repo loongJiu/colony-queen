@@ -5,6 +5,8 @@ import { createSSEConnection } from '../../api/sse'
 import { useConnectionStore } from '../../stores/connection'
 import { useAgentStore } from '../../stores/agents'
 import { useTaskStore } from '../../stores/tasks'
+import { useRitualStore } from '../../stores/ritual'
+import { RitualOverlay } from '../ritual/RitualOverlay'
 
 const SSE_URL = `${import.meta.env.VITE_API_BASE || ''}/admin/stream`
 
@@ -15,6 +17,10 @@ export function Layout ({ children }) {
   const taskSetSnapshot = useTaskStore((s) => s.setSnapshot)
   const taskUpdateTask = useTaskStore((s) => s.updateTask)
   const taskAddLog = useTaskStore((s) => s.addLog)
+  const ritualActive = useRitualStore((s) => s.active)
+  const ritualVariant = useRitualStore((s) => s.variant)
+  const ritualMessage = useRitualStore((s) => s.message)
+  const clearRitual = useRitualStore((s) => s.clearRitual)
 
   // 用 ref 持有最新的 handler 引用，避免 SSE effect 依赖 store selectors
   const handlersRef = useRef(null)
@@ -52,6 +58,12 @@ export function Layout ({ children }) {
           {children}
         </main>
       </div>
+      <RitualOverlay
+        active={ritualActive}
+        variant={ritualVariant}
+        message={ritualMessage}
+        onComplete={clearRitual}
+      />
     </div>
   )
 }

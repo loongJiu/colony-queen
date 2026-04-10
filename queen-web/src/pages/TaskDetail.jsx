@@ -7,6 +7,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback, Fragment } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTaskStore } from '../stores/tasks'
+import { useRitualStore } from '../stores/ritual'
 import { apiFetch } from '../api/client'
 import { TaskLogPanel } from '../components/task/TaskLogPanel'
 import { formatDuration } from '../utils/format'
@@ -35,6 +36,8 @@ export function TaskDetail () {
   const navigate = useNavigate()
   const storeTaskData = useTaskStore((s) => s.tasks.find((t) => t.taskId === taskId))
   const liveLogs = useTaskStore((s) => s.taskLogs[taskId])
+  const triggerRitual = useRitualStore((s) => s.triggerRitual)
+  const [fortuneCount, setFortuneCount] = useState(0)
 
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -150,6 +153,11 @@ export function TaskDetail () {
     } finally {
       setCancelling(false)
     }
+  }
+
+  const handleInjectFortune = () => {
+    setFortuneCount((c) => c + 1)
+    triggerRitual({ variant: 'fortune', message: '你向蜂群输送了信念' })
   }
 
   // ── Derived values ──
@@ -386,18 +394,33 @@ export function TaskDetail () {
 
           {/* Cancel action */}
           {isActive && (
-            <button
-              onClick={handleCancel}
-              disabled={cancelling}
-              style={{
-                ...s.cancelBtn,
-                opacity: cancelling ? 0.5 : 1,
-                cursor: cancelling ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <XCircle size={13} />
-              {cancelling ? 'Cancelling...' : 'Abort Mission'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                style={{
+                  ...s.cancelBtn,
+                  marginTop: 0,
+                  opacity: cancelling ? 0.5 : 1,
+                  cursor: cancelling ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <XCircle size={13} />
+                {cancelling ? 'Cancelling...' : 'Abort Mission'}
+              </button>
+              {status === 'running' && (
+                <button
+                  onClick={handleInjectFortune}
+                  style={s.fortuneBtn}
+                >
+                  <Sparkles size={13} />
+                  注入气运
+                  {fortuneCount > 0 && (
+                    <span style={s.fortuneCount}>{fortuneCount}</span>
+                  )}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </section>
@@ -2183,6 +2206,34 @@ const s = {
     borderRadius: 'var(--radius-sm)',
     background: 'var(--color-error-dim)',
     transition: 'all 0.15s',
+  },
+  fortuneBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 14px',
+    fontSize: 12,
+    fontFamily: "'Space Grotesk', sans-serif",
+    fontWeight: 600,
+    color: 'var(--color-accent)',
+    border: '1px solid var(--color-accent)44',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--color-accent-dim)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  fortuneCount: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 16,
+    height: 16,
+    fontSize: 10,
+    fontFamily: "'JetBrains Mono', monospace",
+    color: 'var(--color-accent)',
+    background: 'var(--color-accent)22',
+    borderRadius: 8,
+    padding: '0 4px',
   },
 
   /* ══════════════════════════════════
