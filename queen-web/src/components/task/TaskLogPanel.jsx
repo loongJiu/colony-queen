@@ -245,7 +245,7 @@ const styles = {
   },
   logCount: {
     fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)',
     background: 'var(--color-surface)',
     padding: '1px 7px',
@@ -268,7 +268,7 @@ const styles = {
   },
   filterBtn: {
     fontSize: 9,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     fontWeight: 600,
     padding: '1px 6px',
     borderRadius: 3,
@@ -288,7 +288,7 @@ const styles = {
     alignItems: 'flex-start',
     gap: 8,
     padding: '4px 14px',
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     fontSize: 11,
     lineHeight: 1.6,
     transition: 'background 0.1s'
@@ -346,7 +346,7 @@ const styles = {
   extraPre: {
     margin: 0,
     fontSize: 9,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)',
     lineHeight: 1.5,
     whiteSpace: 'pre-wrap',

@@ -1,8 +1,9 @@
 /**
- * Badge — 统一标签组件
+ * Badge — unified tag component (CRT neural interface style)
  *
- * 支持 status / count / tag / capability 变体。
- * 自动映射状态颜色和脉冲动画。
+ * Supports status / count / tag / capability variants.
+ * Auto-maps status colors and pulse animation.
+ * Uses JetBrains Mono, uppercase for status/capability, sharp corners.
  */
 import { TASK_STATUS_COLORS, STATUS_COLORS } from '../../utils/constants'
 
@@ -23,14 +24,18 @@ export function Badge({
   const resolved = color || (status ? STATUS_MAP[status] : undefined) || 'var(--color-text-muted)'
   const dimColor = resolved.startsWith('var(')
     ? `color-mix(in srgb, ${resolved} 15%, transparent)`
-    : resolved + '22'
+    : resolved + '18'
 
-  const fontSize = variant === 'count' ? 10 : 11
-  const weight = variant === 'capability' ? 500 : 600
-  const px = variant === 'count' ? 6 : 8
-  const py = variant === 'count' ? 2 : 3
-  const transform = variant === 'status' ? 'uppercase' : 'none'
-  const tracking = variant === 'status' ? '0.04em' : '0'
+  const isCount = variant === 'count'
+  const isStatus = variant === 'status'
+  const isCapability = variant === 'capability'
+
+  const fontSize = isCount ? 10 : 11
+  const weight = isCapability ? 500 : 600
+  const px = isCount ? 6 : 8
+  const py = isCount ? 2 : 3
+  const transform = (isStatus || isCapability) ? 'uppercase' : 'none'
+  const tracking = (isStatus || isCapability) ? '0.06em' : '0'
 
   return (
     <span
@@ -41,10 +46,10 @@ export function Badge({
         padding: `${py}px ${px}px`,
         fontSize,
         fontWeight: weight,
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         color: resolved,
         background: dimColor,
-        borderRadius: variant === 'count' ? '10px' : 'var(--radius-sm)',
+        borderRadius: isCount ? '4px' : '2px',
         textTransform: transform,
         letterSpacing: tracking,
         lineHeight: 1,

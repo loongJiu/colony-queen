@@ -44,14 +44,14 @@ function CircularGauge ({ value = 0, size = 120, strokeWidth = 6, status = 'idle
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
       }}>
         <span style={{
-          fontSize: 28, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 28, fontWeight: 400, fontFamily: "'Bebas Neue', sans-serif",
           letterSpacing: '-0.04em', color, lineHeight: 1
         }}>
           {Math.round(pct)}
         </span>
         <span style={{
           fontSize: 9, color: 'var(--color-text-muted)', textTransform: 'uppercase',
-          letterSpacing: '0.08em', fontWeight: 600, marginTop: 2
+          letterSpacing: '0.12em', fontWeight: 600, marginTop: 2
         }}>
           Load
         </span>
@@ -99,7 +99,7 @@ function InfoRow ({ icon: Icon, label, value, mono = true }) {
     <div style={s.infoRow}>
       <Icon size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
       <span style={s.infoLabel}>{label}</span>
-      <span style={{ ...s.infoValue, fontFamily: mono ? "'IBM Plex Mono', monospace" : undefined }}>
+      <span style={{ ...s.infoValue, fontFamily: mono ? "'JetBrains Mono', monospace" : undefined }}>
         {value || '-'}
       </span>
     </div>
@@ -495,7 +495,7 @@ const s = {
     gap: 4
   },
   heroId: {
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     fontSize: 11,
     color: 'var(--color-text-muted)',
     letterSpacing: '-0.01em'
@@ -600,7 +600,7 @@ const s = {
     gap: 2,
     padding: '8px 12px',
     background: 'var(--color-surface-hover)',
-    borderRadius: 'var(--radius-sm)'
+    borderRadius: '2px'
   },
   constraintLabel: {
     fontSize: 9,
@@ -612,7 +612,7 @@ const s = {
   constraintValue: {
     fontSize: 16,
     fontWeight: 700,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '-0.03em',
     color: 'var(--color-text)'
   },
@@ -643,7 +643,7 @@ const s = {
   heartbeatSub: {
     fontSize: 11,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
   timelineDivider: {
     height: 1,
@@ -684,7 +684,7 @@ const s = {
   },
   timelineValue: {
     fontSize: 12,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '-0.01em'
   },
   offlineWarning: {
@@ -692,7 +692,7 @@ const s = {
     alignItems: 'flex-start',
     gap: 10,
     padding: '12px 14px',
-    borderRadius: 'var(--radius-sm)',
+    borderRadius: '2px',
     background: 'var(--color-warning-dim)',
     border: '1px solid rgba(245, 158, 11, 0.2)',
     marginTop: 8
@@ -738,7 +738,7 @@ const s = {
   },
   taskRowId: {
     fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)'
   },
   taskRowMeta: {
@@ -750,11 +750,11 @@ const s = {
   taskRowSteps: {
     fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
   taskRowTime: {
     fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   }
 }

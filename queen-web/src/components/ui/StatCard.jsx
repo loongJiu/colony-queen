@@ -1,8 +1,9 @@
 /**
- * StatCard — 统一统计卡片
+ * StatCard — unified stats card (CRT neural interface style)
  *
- * 取代各页面重复定义的 StatCard。
- * 支持 icon（JSX 或组件）、value、label、sub、active 高亮、点击筛选。
+ * Supports icon (JSX or component), value, label, sub, active highlight, click filter.
+ * Bebas Neue for large value numbers, JetBrains Mono for label/sub.
+ * Sharp corners, 2px left accent border when active.
  */
 import { useRef, useCallback, isValidElement, createElement } from 'react'
 
@@ -23,13 +24,13 @@ export function StatCard({
   const handleEnter = useCallback(() => {
     if (ref.current) {
       ref.current.style.borderColor = accentColor
-      ref.current.style.boxShadow = `0 0 20px ${accentColor}15`
+      ref.current.style.boxShadow = `0 0 12px ${accentColor}12`
     }
   }, [accentColor])
 
   const handleLeave = useCallback(() => {
     if (ref.current && !active) {
-      ref.current.style.borderColor = active ? accentColor : 'var(--color-border)'
+      ref.current.style.borderColor = 'var(--color-border)'
       ref.current.style.boxShadow = 'none'
     }
   }, [accentColor, active])
@@ -50,11 +51,14 @@ export function StatCard({
         alignItems: isCompact ? 'center' : 'flex-start',
         gap: isCompact ? 8 : 10,
         padding: isCompact ? '10px 14px' : 16,
-        background: active ? `color-mix(in srgb, ${accentColor} 8%, var(--color-surface))` : 'var(--color-surface)',
+        background: active
+          ? `color-mix(in srgb, ${accentColor} 6%, var(--color-surface))`
+          : 'var(--color-surface)',
         border: `1px solid ${active ? accentColor : 'var(--color-border)'}`,
-        borderRadius: 'var(--radius)',
+        borderLeft: active ? `2px solid ${accentColor}` : `1px solid ${active ? accentColor : 'var(--color-border)'}`,
+        borderRadius: '3px',
         cursor: onClick ? 'pointer' : 'default',
-        transition: `all var(--duration-fast) var(--ease-default)`,
+        transition: 'all var(--duration-fast) var(--ease-default)',
         position: 'relative',
         overflow: 'hidden',
         ...style,
@@ -62,18 +66,6 @@ export function StatCard({
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      {/* Accent glow */}
-      <div style={{
-        position: 'absolute',
-        top: -20,
-        right: -20,
-        width: 60,
-        height: 60,
-        borderRadius: '50%',
-        background: `radial-gradient(circle, ${accentColor}15 0%, transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
-
       {iconEl && (
         <div style={{
           color: accentColor,
@@ -86,20 +78,21 @@ export function StatCard({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <span style={{
-          fontSize: isCompact ? 20 : 22,
-          fontWeight: 700,
-          fontFamily: "'Syne', 'DM Sans', sans-serif",
+          fontSize: isCompact ? 22 : 28,
+          fontWeight: 400,
+          fontFamily: "'Bebas Neue', sans-serif",
           color: 'var(--color-text)',
-          letterSpacing: '-0.03em',
+          letterSpacing: '0.02em',
           lineHeight: 1.1,
         }}>
-          {value ?? '—'}
+          {value ?? '\u2014'}
         </span>
         <span style={{
           fontSize: 11,
           color: 'var(--color-text-muted)',
           fontWeight: 500,
-          letterSpacing: '0.01em',
+          fontFamily: "'JetBrains Mono', monospace",
+          letterSpacing: '0.02em',
         }}>
           {label}
         </span>
@@ -107,7 +100,7 @@ export function StatCard({
           <span style={{
             fontSize: 10,
             color: accentColor,
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 500,
           }}>
             {sub}

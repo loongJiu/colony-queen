@@ -12,20 +12,20 @@ export function LoadBar ({ value = 0, status = 'idle' }) {
       style={{
         width: '100%',
         height: 4,
-        borderRadius: 2,
+        borderRadius: 0,
         backgroundColor: 'var(--color-load-track)',
         overflow: 'hidden',
-        position: 'relative'
+        position: 'relative',
       }}
     >
       <div
         style={{
           height: '100%',
           width: `${pct}%`,
-          borderRadius: 2,
+          borderRadius: 0,
           backgroundColor: color,
           transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: `0 0 6px ${color}55`
+          boxShadow: `0 0 8px ${color}88, 0 0 3px ${color}cc`,
         }}
       />
     </div>

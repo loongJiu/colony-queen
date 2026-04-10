@@ -1,24 +1,24 @@
 export const STATUS_COLORS = {
-  idle: '#94a3b8',
-  busy: '#f59e0b',
-  error: '#ef4444',
-  offline: '#6b7280',
-  success: '#22c55e',
-  pending: '#6366f1',
-  running: '#f59e0b',
-  failure: '#ef4444',
-  partial: '#f97316',
-  cancelled: '#6b7280'
+  idle: '#5a6478',
+  busy: '#ff8800',
+  error: '#ff2d55',
+  offline: '#3a4050',
+  success: '#39ff14',
+  pending: '#00b4d8',
+  running: '#ff8800',
+  failure: '#ff2d55',
+  partial: '#ff9500',
+  cancelled: '#3a4050'
 }
 
 export const TASK_STATUS_COLORS = {
-  planning: '#818cf8',
-  pending: '#6366f1',
-  running: '#f59e0b',
-  success: '#22c55e',
-  failure: '#ef4444',
-  partial: '#f97316',
-  cancelled: '#6b7280'
+  planning: '#a78bfa',
+  pending: '#00b4d8',
+  running: '#ff8800',
+  success: '#39ff14',
+  failure: '#ff2d55',
+  partial: '#ff9500',
+  cancelled: '#3a4050'
 }
 
 export const STATUS_LABELS = {

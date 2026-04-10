@@ -169,7 +169,7 @@ export function AgentProfile () {
                   }}
                   labelStyle={{ color: 'var(--color-text)' }}
                 />
-                <Bar dataKey='score' fill='#f59e0b' radius={[4, 4, 0, 0]} />
+                <Bar dataKey='score' fill='#00e5ff' radius={[0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -195,7 +195,7 @@ export function AgentProfile () {
                   }}
                   labelStyle={{ color: 'var(--color-text)' }}
                 />
-                <Line type='monotone' dataKey='score' stroke='#f59e0b' strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} />
+                <Line type='monotone' dataKey='score' stroke='#00e5ff' strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -228,7 +228,7 @@ const s = {
   /* Agent ID badge */
   agentIdBadge: {
     fontSize: 11,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)',
     background: 'var(--color-surface)',
     padding: '3px 10px',
@@ -289,7 +289,7 @@ const s = {
   capMetricValue: {
     fontSize: 14,
     fontWeight: 700,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '-0.02em'
   }
 }

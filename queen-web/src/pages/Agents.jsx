@@ -348,7 +348,8 @@ const s = {
     flexDirection: 'column',
     gap: 14,
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    borderRadius: 4
   },
   cardHeader: {
     display: 'flex',
@@ -371,8 +372,8 @@ const s = {
   cardName: {
     fontSize: 14,
     fontWeight: 600,
-    fontFamily: "'IBM Plex Mono', monospace",
-    letterSpacing: '-0.02em',
+    fontFamily: "'Space Grotesk', sans-serif",
+    letterSpacing: '-0.01em',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap'
@@ -381,8 +382,9 @@ const s = {
     fontSize: 10,
     color: 'var(--color-text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600
+    letterSpacing: '0.1em',
+    fontWeight: 700,
+    fontFamily: "'JetBrains Mono', monospace"
   },
 
   /* Card sections */
@@ -398,8 +400,9 @@ const s = {
     fontSize: 10,
     color: 'var(--color-text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600
+    letterSpacing: '0.1em',
+    fontWeight: 700,
+    fontFamily: "'Space Grotesk', sans-serif"
   },
   tagRow: {
     display: 'flex',
@@ -426,15 +429,20 @@ const s = {
   cardInfoLabel: {
     fontSize: 10,
     color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
     flexShrink: 0,
-    width: 40
+    width: 44,
+    fontFamily: "'Space Grotesk', sans-serif",
+    fontWeight: 600
   },
   cardInfoValue: {
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-secondary)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    fontSize: 11
   },
 
   /* Load */
@@ -450,13 +458,14 @@ const s = {
     fontSize: 10,
     color: 'var(--color-text-muted)',
     textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontWeight: 600
+    letterSpacing: '0.1em',
+    fontWeight: 700,
+    fontFamily: "'Space Grotesk', sans-serif"
   },
   loadPct: {
     fontSize: 12,
     fontWeight: 600,
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
 
   /* Metrics row */
@@ -465,7 +474,7 @@ const s = {
     gap: 16,
     fontSize: 11,
     color: 'var(--color-text-secondary)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
   metric: {
     display: 'flex',
@@ -473,11 +482,17 @@ const s = {
     gap: 4
   },
   metricLabel: {
-    fontSize: 10,
-    color: 'var(--color-text-muted)'
+    fontSize: 9,
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    fontWeight: 600,
+    fontFamily: "'Space Grotesk', sans-serif"
   },
   metricValue: {
-    fontWeight: 500
+    fontWeight: 500,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 11
   },
 
   /* Offline notice */
@@ -486,8 +501,9 @@ const s = {
     alignItems: 'center',
     gap: 6,
     padding: '6px 10px',
-    borderRadius: 'var(--radius-sm)',
-    background: 'var(--color-surface-hover)'
+    borderRadius: 2,
+    background: 'var(--color-surface-hover)',
+    border: '1px solid var(--color-border)'
   },
   offlineDot: {
     width: 6,
@@ -498,7 +514,8 @@ const s = {
   },
   offlineText: {
     fontSize: 11,
-    color: 'var(--color-text-muted)'
+    color: 'var(--color-text-muted)',
+    fontFamily: "'JetBrains Mono', monospace"
   },
 
   /* Card footer */
@@ -511,9 +528,10 @@ const s = {
     marginTop: 2
   },
   cardAgentId: {
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     fontSize: 10,
-    color: 'var(--color-text-muted)',
+    color: 'var(--color-primary)',
+    opacity: 0.6,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',

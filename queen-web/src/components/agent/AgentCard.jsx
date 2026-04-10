@@ -107,7 +107,7 @@ const styles = {
   agentName: {
     fontSize: 14,
     fontWeight: 600,
-    fontFamily: "'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '-0.02em',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -131,14 +131,14 @@ const styles = {
     gap: 4,
     fontSize: 11,
     color: 'var(--color-text-secondary)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
   metrics: {
     display: 'flex',
     justifyContent: 'space-between',
     fontSize: 11,
     color: 'var(--color-text-secondary)',
-    fontFamily: "'IBM Plex Mono', monospace"
+    fontFamily: "'JetBrains Mono', monospace"
   },
   metric: {
     display: 'flex',
@@ -159,7 +159,7 @@ const styles = {
     borderRadius: 4,
     background: 'var(--color-primary-dim)',
     color: 'var(--color-primary)',
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '-0.01em'
   }
 }

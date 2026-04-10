@@ -11,7 +11,7 @@ import {
   Bot, Activity, BarChart3, Trophy, Target, Star, Zap
 } from 'lucide-react'
 
-const RANK_COLORS = ['#f59e0b', '#94a3b8', '#c2884d']
+const RANK_COLORS = ['#00e5ff', '#ff8800', '#39ff14']
 
 export function Overview () {
   const navigate = useNavigate()
@@ -214,12 +214,12 @@ const s = {
   page: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 24,
+    gap: 20,
   },
   statsRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-    gap: 12,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: 6,
   },
   statItem: {
     animation: 'fadeIn 0.4s var(--ease-out) both',
@@ -229,7 +229,7 @@ const s = {
   section: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
+    gap: 8,
     animation: 'fadeIn 0.4s var(--ease-out) both',
   },
 
@@ -237,40 +237,49 @@ const s = {
   leaderboard: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
+    gap: 0,
+    borderTop: '1px solid var(--color-border)',
+    borderLeft: '1px solid var(--color-border)',
+    borderRight: '1px solid var(--color-border)',
   },
   leaderRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '12px 16px',
+    padding: '10px 14px',
     animation: 'fadeIn 0.4s var(--ease-out) both',
+    borderBottom: '1px solid var(--color-border)',
+    borderRadius: 0,
   },
   leaderLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     minWidth: 0,
   },
   leaderRank: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 700,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'Bebas Neue', sans-serif",
     width: 36,
     flexShrink: 0,
+    letterSpacing: '0.05em',
   },
   leaderName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 600,
     color: 'var(--color-text)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    fontFamily: "'Space Grotesk', sans-serif",
   },
   leaderRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
   },
 
@@ -278,7 +287,7 @@ const s = {
   agentGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 12,
+    gap: 8,
   },
   agentItem: {
     animation: 'fadeIn 0.4s var(--ease-out) both',
@@ -291,16 +300,20 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '48px 24px',
-    gap: 12,
+    gap: 10,
   },
   emptyTitle: {
-    fontSize: 14,
-    fontWeight: 500,
+    fontSize: 12,
+    fontWeight: 600,
     color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    fontFamily: "'Space Grotesk', sans-serif",
   },
   emptyDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'var(--color-text-muted)',
-    opacity: 0.7,
+    opacity: 0.6,
+    fontFamily: "'JetBrains Mono', monospace",
   },
 }

@@ -76,7 +76,7 @@ function StepNode ({ data }) {
       </div>
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
         color, background: `${color}15`, padding: '2px 8px', borderRadius: 4,
         marginBottom: 6, letterSpacing: '0.02em', fontWeight: 500
       }}
@@ -92,7 +92,7 @@ function StepNode ({ data }) {
       </div>
       {agentId && agentId !== 'unknown' && (
         <div style={{
-          fontSize: 9, fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 9, fontFamily: "'JetBrains Mono', monospace",
           color: 'var(--color-text-muted)', marginBottom: 4,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 170
         }}
@@ -102,7 +102,7 @@ function StepNode ({ data }) {
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <span style={{
-          fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
           color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em'
         }}
         >
@@ -111,7 +111,7 @@ function StepNode ({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {retryCount > 0 && (
             <span style={{
-              fontSize: 9, fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 9, fontFamily: "'JetBrains Mono', monospace",
               color: 'var(--color-warning)', background: 'var(--color-warning)15',
               padding: '1px 5px', borderRadius: 3,
               display: 'inline-flex', alignItems: 'center', gap: 3
@@ -121,7 +121,7 @@ function StepNode ({ data }) {
             </span>
           )}
           {durationMs != null && (
-            <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: 'var(--color-text-secondary)' }}>
+            <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-text-secondary)' }}>
               {formatDuration(durationMs)}
             </span>
           )}
@@ -513,7 +513,7 @@ const headerStyles = {
   left: { display: 'flex', alignItems: 'center', gap: 8 },
   badge: {
     display: 'inline-flex', alignItems: 'center', gap: 5,
-    fontSize: 10, fontWeight: 600, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
     padding: '3px 8px', borderRadius: 4, letterSpacing: '0.03em'
   },
   progressWrap: { display: 'flex', alignItems: 'center', gap: 8 },
@@ -526,7 +526,7 @@ const headerStyles = {
     transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
   },
   progressLabel: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)', fontWeight: 500
   },
   strategyHint: {
@@ -536,7 +536,7 @@ const headerStyles = {
     background: 'var(--color-surface-hover)'
   },
   strategyHintText: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)', fontWeight: 500, letterSpacing: '0.02em'
   },
   hint: {
@@ -568,20 +568,20 @@ const detailStyles = {
   },
   metaRow: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   cap: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-primary)', background: 'var(--color-primary-dim)',
     padding: '2px 8px', borderRadius: 3
   },
   agent: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)'
   },
   dur: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-secondary)'
   },
   st: {
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     fontWeight: 600, marginLeft: 'auto'
   },
   section: { display: 'flex', flexDirection: 'column', gap: 4 },
@@ -594,7 +594,7 @@ const detailStyles = {
     fontStyle: 'italic', margin: 0
   },
   pre: {
-    margin: 0, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace",
+    margin: 0, fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
     lineHeight: 1.5, color: 'var(--color-text)',
     background: 'var(--color-surface)', padding: 10,
     borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)',
@@ -607,7 +607,7 @@ const detailStyles = {
     borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-error)33'
   },
   errCode: {
-    fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
     fontWeight: 600, color: 'var(--color-error)',
     padding: '1px 6px', background: 'var(--error)15', borderRadius: 3
   },
@@ -622,7 +622,7 @@ const detailStyles = {
   retryList: { display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 2 },
   retryItem: {
     display: 'flex', alignItems: 'center', gap: 8,
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-muted)', padding: '3px 0'
   },
   retryAttempt: { fontWeight: 600, color: 'var(--color-warning)', minWidth: 20 },
@@ -636,7 +636,7 @@ const detailStyles = {
   },
   usageRow: {
     display: 'flex', gap: 16,
-    fontSize: 10, fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
     color: 'var(--color-text-secondary)'
   }
 }

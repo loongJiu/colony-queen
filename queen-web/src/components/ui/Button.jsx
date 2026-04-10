@@ -1,8 +1,9 @@
 /**
- * Button — 统一按钮组件
+ * Button — CRT Neural Interface Control
  *
- * 支持 primary / danger / ghost / outline 变体，sm / md / lg 尺寸。
- * 带 loading 旋转图标和 icon 插槽。
+ * Monospace, uppercase, sharp-edged buttons.
+ * Supports primary / danger / ghost / outline variants, sm / md / lg sizes.
+ * Loading state shows spinning Loader2. Icon slots preserved.
  */
 import { Loader2 } from 'lucide-react'
 
@@ -12,31 +13,39 @@ const variants = {
     color: '#0a0b0f',
     border: '1px solid var(--color-primary)',
     hoverBg: 'var(--color-primary-strong)',
+    hoverBorder: 'var(--color-primary-strong)',
+    hoverBoxShadow: '0 0 10px var(--color-primary-glow)',
   },
   danger: {
     background: 'transparent',
     color: 'var(--color-error)',
     border: '1px solid var(--color-error-dim)',
     hoverBg: 'var(--color-error-dim)',
+    hoverBorder: 'var(--color-error)',
+    hoverBoxShadow: '0 0 8px rgba(255, 45, 85, 0.15)',
   },
   ghost: {
     background: 'transparent',
-    color: 'var(--color-text-secondary)',
+    color: 'var(--color-text-muted)',
     border: '1px solid transparent',
     hoverBg: 'var(--color-surface-hover)',
+    hoverBorder: 'transparent',
+    hoverBoxShadow: 'none',
   },
   outline: {
     background: 'transparent',
     color: 'var(--color-text)',
     border: '1px solid var(--color-border)',
     hoverBg: 'var(--color-surface-hover)',
+    hoverBorder: 'var(--color-border-hover)',
+    hoverBoxShadow: 'none',
   },
 }
 
 const sizes = {
-  sm: { padding: '6px 12px', fontSize: 12, gap: 5, iconSize: 13 },
-  md: { padding: '8px 16px', fontSize: 13, gap: 7, iconSize: 15 },
-  lg: { padding: '10px 20px', fontSize: 14, gap: 8, iconSize: 16 },
+  sm: { padding: '4px 10px', fontSize: 11, gap: 5, iconSize: 12 },
+  md: { padding: '6px 14px', fontSize: 12, gap: 6, iconSize: 14 },
+  lg: { padding: '8px 18px', fontSize: 13, gap: 7, iconSize: 15 },
 }
 
 export function Button({
@@ -66,28 +75,39 @@ export function Button({
         padding: s.padding,
         fontSize: s.fontSize,
         fontWeight: 600,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'JetBrains Mono', monospace",
         lineHeight: 1,
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: '2px',
         background: v.background,
         color: v.color,
         border: v.border,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
-        transition: `all var(--duration-fast) var(--ease-default)`,
+        opacity: disabled ? 0.35 : 1,
+        transition: 'background var(--duration-fast) var(--ease-default), border-color var(--duration-fast) var(--ease-default), box-shadow var(--duration-fast) var(--ease-default)',
         whiteSpace: 'nowrap',
-        letterSpacing: '-0.01em',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
         ...style,
       }}
       onMouseEnter={(e) => {
-        if (!disabled && !loading) e.currentTarget.style.background = v.hoverBg
+        if (!disabled && !loading) {
+          e.currentTarget.style.background = v.hoverBg
+          e.currentTarget.style.borderColor = v.hoverBorder
+          e.currentTarget.style.boxShadow = v.hoverBoxShadow
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = v.background
+        e.currentTarget.style.borderColor = v.border.replace(/^1px solid /, '')
+        e.currentTarget.style.boxShadow = 'none'
       }}
       {...rest}
     >
-      {loading ? <Loader2 size={s.iconSize} style={{ animation: 'spin 1s linear infinite' }} /> : Icon ? <Icon size={s.iconSize} /> : null}
+      {loading ? (
+        <Loader2 size={s.iconSize} style={{ animation: 'spin 1s linear infinite' }} />
+      ) : Icon ? (
+        <Icon size={s.iconSize} />
+      ) : null}
       {children}
       {IconRight && !loading && <IconRight size={s.iconSize} />}
     </button>

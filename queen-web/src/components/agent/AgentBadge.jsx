@@ -9,7 +9,7 @@ export function AgentBadge ({ status }) {
       gap: 4,
       fontSize: 11,
       color: STATUS_COLORS[status] || '#6b7280',
-      fontFamily: "'IBM Plex Mono', monospace"
+      fontFamily: "'JetBrains Mono', monospace"
     }}
     >
       <StatusDot status={status} size='sm' />

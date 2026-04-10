@@ -235,61 +235,66 @@ const s = {
   page: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 20,
+    gap: 16,
   },
 
   /* Skeleton */
   skeletonList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: 4,
   },
 
   /* Empty state */
   emptyCard: {
     animation: 'fadeIn 0.4s var(--ease-out) both',
+    borderRadius: '2px',
   },
   emptyInner: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '56px 24px',
-    gap: 12,
+    padding: '48px 24px',
+    gap: 10,
   },
   emptyIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: '50%',
+    width: 48,
+    height: 48,
+    borderRadius: '2px',
     background: 'var(--color-primary-dim)',
+    border: '1px solid var(--color-primary)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: 600,
     color: 'var(--color-text)',
-    fontFamily: "'Syne', sans-serif",
+    fontFamily: "'Space Grotesk', sans-serif",
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
   },
   emptyDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'var(--color-text-muted)',
     textAlign: 'center',
     maxWidth: 300,
+    fontFamily: "'JetBrains Mono', monospace",
   },
 
   /* Session list */
   sessionList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: 4,
   },
   sessionCard: {
     background: 'var(--color-surface)',
     border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius)',
+    borderRadius: '2px',
     overflow: 'hidden',
     animation: 'fadeIn 0.4s var(--ease-out) both',
   },
@@ -297,14 +302,14 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '14px 16px',
+    padding: '10px 14px',
     cursor: 'pointer',
     transition: 'background var(--duration-fast) var(--ease-default)',
   },
   sessionLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
     minWidth: 0,
   },
@@ -316,7 +321,7 @@ const s = {
   sessionInfo: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 3,
+    gap: 2,
     minWidth: 0,
   },
   sessionNameRow: {
@@ -325,17 +330,22 @@ const s = {
     gap: 8,
   },
   sessionName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 600,
     color: 'var(--color-text)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    fontFamily: "'Space Grotesk', sans-serif",
   },
   sessionMeta: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
   },
   sessionRight: {
     display: 'flex',
@@ -349,7 +359,9 @@ const s = {
     gap: 4,
     fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
   },
 
   /* Task list with height transition */
@@ -359,17 +371,20 @@ const s = {
   },
   taskList: {
     borderTop: '1px solid var(--color-border)',
-    padding: '4px 0',
+    borderLeft: '3px solid var(--color-primary)',
+    padding: '2px 0',
+    background: 'var(--color-surface)',
   },
   taskRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '10px 16px 10px 44px',
+    padding: '8px 14px 8px 40px',
     cursor: 'pointer',
     transition: 'all var(--duration-fast) var(--ease-default)',
     borderLeft: '2px solid transparent',
     background: 'var(--color-surface)',
+    borderBottom: '1px solid var(--color-border)',
   },
   taskLeft: {
     display: 'flex',
@@ -379,21 +394,24 @@ const s = {
     minWidth: 0,
   },
   taskDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'var(--color-text-secondary)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    fontFamily: "'JetBrains Mono', monospace",
   },
   taskRight: {
     flexShrink: 0,
   },
   emptyTasks: {
-    padding: '12px 16px 12px 44px',
+    padding: '10px 14px 10px 40px',
   },
   emptyTasksText: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'var(--color-text-muted)',
-    fontStyle: 'italic',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    fontFamily: "'Space Grotesk', sans-serif",
   },
 }

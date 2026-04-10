@@ -1,8 +1,8 @@
 /**
- * PageHeader — 页面标题区
+ * PageHeader — page title area (CRT neural interface style)
  *
- * 统一的页面标题 + 计数 badge + 右侧操作区。
- * 使用 Syne 显示字体，带渐变分隔线。
+ * Unified page title + count badge + right-side actions area.
+ * Uses Space Grotesk display font, sharp design.
  */
 import { Badge } from './Badge'
 
@@ -19,11 +19,12 @@ export function PageHeader({ title, count, actions, style }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <h1 style={{
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: 700,
-          fontFamily: "'Syne', 'DM Sans', sans-serif",
+          fontFamily: "'Space Grotesk', sans-serif",
           color: 'var(--color-text)',
-          letterSpacing: '-0.04em',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
           whiteSpace: 'nowrap',
           margin: 0,
         }}>
@@ -41,7 +42,9 @@ export function PageHeader({ title, count, actions, style }) {
 }
 
 /**
- * SectionHeader — 区域标题
+ * SectionHeader — section title (CRT neural interface style)
+ *
+ * JetBrains Mono, 10px uppercase, solid divider line.
  */
 export function SectionHeader({ title, sub, style }) {
   return (
@@ -53,12 +56,12 @@ export function SectionHeader({ title, sub, style }) {
       ...style,
     }}>
       <span style={{
-        fontSize: 12,
+        fontSize: 10,
         fontWeight: 600,
         color: 'var(--color-text-secondary)',
         textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        fontFamily: "'IBM Plex Mono', monospace",
+        letterSpacing: '0.1em',
+        fontFamily: "'JetBrains Mono', monospace",
         whiteSpace: 'nowrap',
       }}>
         {title}
@@ -66,7 +69,7 @@ export function SectionHeader({ title, sub, style }) {
       <div style={{
         flex: 1,
         height: 1,
-        background: 'linear-gradient(90deg, var(--color-border), transparent)',
+        background: 'var(--color-border)',
       }} />
       {sub && (
         <span style={{

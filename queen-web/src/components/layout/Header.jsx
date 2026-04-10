@@ -26,40 +26,42 @@ export function Header () {
 
   return (
     <header style={s.header}>
+      {/* Signal bar — thin top line showing connection */}
+      <div style={s.signalBar}>
+        <div style={{
+          ...s.signalStream,
+          background: connected
+            ? 'linear-gradient(90deg, transparent, var(--color-primary), transparent)'
+            : 'linear-gradient(90deg, transparent, var(--color-error), transparent)',
+          animation: connected ? 'dataStream 3s linear infinite' : 'pulse 2s ease-in-out infinite',
+        }} />
+      </div>
+
       <div style={s.left}>
         <div style={s.breadcrumb}>
-          <span style={s.breadcrumbDim}>Colony</span>
-          <span style={s.breadcrumbSep}>/</span>
-          <span style={s.breadcrumbActive}>{label}</span>
+          <span style={s.breadcrumbPrefix}>COLONY://</span>
+          <span style={s.breadcrumbActive}>{label.toUpperCase()}</span>
         </div>
       </div>
 
       <div style={s.right}>
         <div style={{
           ...s.connection,
-          color: connected ? 'var(--color-success)' : 'var(--color-error)'
-        }}
-        >
-          {connected ? <Wifi size={13} /> : <WifiOff size={13} />}
+          color: connected ? 'var(--color-primary)' : 'var(--color-error)',
+        }}>
+          {connected ? <Wifi size={12} /> : <WifiOff size={12} />}
           <span style={s.connectionText}>
-            {connected ? 'Connected' : 'Disconnected'}
+            {connected ? 'SYNC' : 'OFFLINE'}
           </span>
           <span style={{
             ...s.connectionDot,
-            backgroundColor: connected ? 'var(--color-success)' : 'var(--color-error)',
-            animation: connected ? 'header-pulse 2s ease-in-out infinite' : 'none'
-          }}
-          />
+            backgroundColor: connected ? 'var(--color-primary)' : 'var(--color-error)',
+            boxShadow: connected ? '0 0 6px var(--color-primary-glow)' : '0 0 6px rgba(255,45,85,0.3)',
+            animation: connected ? 'signalBlink 2s ease-in-out infinite' : 'pulse 1s ease-in-out infinite',
+          }} />
         </div>
         <ThemeToggle />
       </div>
-
-      <style>{`
-        @keyframes header-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
     </header>
   )
 }
@@ -71,57 +73,73 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 24px',
+    padding: '0 20px',
     background: 'var(--color-header-bg)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
     position: 'sticky',
     top: 0,
-    zIndex: 50
+    zIndex: 50,
   },
+
+  /* Signal bar — thin animated top border */
+  signalBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    overflow: 'hidden',
+  },
+  signalStream: {
+    width: '30%',
+    height: '100%',
+  },
+
   left: {
     display: 'flex',
     alignItems: 'center',
-    gap: 16
+    gap: 16,
   },
   breadcrumb: {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    fontSize: 13,
-    fontFamily: "'IBM Plex Mono', monospace"
+    gap: 0,
+    fontSize: 11,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontWeight: 500,
   },
-  breadcrumbDim: {
-    color: 'var(--color-text-muted)'
-  },
-  breadcrumbSep: {
-    color: 'var(--color-border)'
+  breadcrumbPrefix: {
+    color: 'var(--color-text-muted)',
+    fontSize: 10,
+    letterSpacing: '0.05em',
   },
   breadcrumbActive: {
-    color: 'var(--color-text)',
-    fontWeight: 500
+    color: 'var(--color-primary)',
+    fontWeight: 600,
+    letterSpacing: '0.08em',
   },
   right: {
     display: 'flex',
     alignItems: 'center',
-    gap: 16
+    gap: 14,
   },
   connection: {
     display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    fontSize: 11,
-    fontWeight: 500,
-    fontFamily: "'IBM Plex Mono', monospace",
+    gap: 5,
+    fontSize: 9,
+    fontWeight: 600,
+    fontFamily: "'JetBrains Mono', monospace",
     textTransform: 'uppercase',
-    letterSpacing: '0.05em'
+    letterSpacing: '0.1em',
   },
   connectionText: {
-    fontSize: 11
+    fontSize: 9,
   },
   connectionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%'
-  }
+    width: 5,
+    height: 5,
+    borderRadius: '50%',
+  },
 }

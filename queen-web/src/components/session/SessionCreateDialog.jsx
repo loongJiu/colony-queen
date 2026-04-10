@@ -82,7 +82,7 @@ export function SessionCreateDialog({ open, onClose, onCreated }) {
             <span style={{
               fontSize: 16,
               fontWeight: 700,
-              fontFamily: "'Syne', sans-serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               letterSpacing: '-0.02em',
             }}>
               New Session
@@ -113,7 +113,7 @@ export function SessionCreateDialog({ open, onClose, onCreated }) {
             marginBottom: 6,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
           }}>
             Session Title
           </label>
@@ -127,7 +127,7 @@ export function SessionCreateDialog({ open, onClose, onCreated }) {
               width: '100%',
               padding: '10px 14px',
               fontSize: 14,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               color: 'var(--color-text)',
               background: 'var(--color-bg)',
               border: '1px solid var(--color-border)',

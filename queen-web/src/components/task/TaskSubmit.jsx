@@ -190,7 +190,7 @@ const styles = {
     outline: 'none',
     color: 'var(--color-text)',
     fontSize: 14,
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: "'Space Grotesk', sans-serif",
     lineHeight: 1.5,
     resize: 'none',
     minHeight: 36,
@@ -226,7 +226,7 @@ const styles = {
   kbd: {
     display: 'inline-block',
     fontSize: 10,
-    fontFamily: "'IBM Plex Mono', monospace",
+    fontFamily: "'JetBrains Mono', monospace",
     padding: '1px 5px',
     borderRadius: 3,
     border: '1px solid var(--color-border)',

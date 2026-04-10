@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react'
-import { Sun } from 'lucide-react'
 
 const STORAGE_KEY = 'colony-theme'
 const TRANSITION_CLASS = 'theme-transitioning'
@@ -34,84 +33,74 @@ export function ThemeToggle () {
       onClick={toggle}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
       title={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-      style={styles.trigger}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 4,
+        borderRadius: 2,
+        outline: 'none',
+        marginLeft: 4,
+        cursor: 'pointer',
+        background: 'transparent',
+        border: 'none',
+      }}
     >
-      <div style={styles.track}>
-        {/* Stars visible in dark mode */}
-        <span style={{ ...styles.star, top: 4, right: 8, opacity: isDark ? 0.8 : 0 }} />
-        <span style={{ ...styles.star, top: 14, right: 5, opacity: isDark ? 0.5 : 0 }} />
-        <span style={{ ...styles.star, top: 8, right: 14, opacity: isDark ? 0.6 : 0 }} />
-        <span style={{ ...styles.star, top: 16, right: 12, opacity: isDark ? 0.4 : 0 }} />
+      <div style={{
+        position: 'relative',
+        width: 36,
+        height: 20,
+        borderRadius: 2,
+        background: 'var(--color-toggle-track)',
+        padding: 2,
+        overflow: 'hidden',
+        transition: 'background 0.3s ease',
+        display: 'flex',
+        alignItems: 'center',
+      }}>
+        {/* Dark mode indicator: cyan dot on left */}
+        <span style={{
+          position: 'absolute',
+          left: 5,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 4,
+          height: 4,
+          borderRadius: 0,
+          backgroundColor: 'var(--color-primary)',
+          boxShadow: isDark ? '0 0 6px var(--color-primary-glow)' : 'none',
+          opacity: isDark ? 1 : 0.3,
+          transition: 'opacity 0.3s ease, box-shadow 0.3s ease',
+        }} />
 
-        {/* Knob — moon in dark, sun in light */}
+        {/* Light mode indicator: warm dot on right */}
+        <span style={{
+          position: 'absolute',
+          right: 5,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 4,
+          height: 4,
+          borderRadius: 0,
+          backgroundColor: '#f59e0b',
+          boxShadow: isDark ? 'none' : '0 0 6px rgba(245, 158, 11, 0.5)',
+          opacity: isDark ? 0.3 : 1,
+          transition: 'opacity 0.3s ease, box-shadow 0.3s ease',
+        }} />
+
+        {/* Knob */}
         <div style={{
-          ...styles.knob,
-          transform: isDark ? 'translateX(0)' : 'translateX(22px)',
-          background: isDark
-            ? 'radial-gradient(circle at 35% 35%, #fde68a, #f59e0b)'
-            : 'radial-gradient(circle at 50% 50%, #fef9c3, #fef3c7)',
-          boxShadow: isDark
-            ? '0 0 8px rgba(245, 158, 11, 0.5), inset 0 -2px 4px rgba(0,0,0,0.15)'
-            : '0 1px 4px rgba(0,0,0,0.12)'
-        }}
-        >
-          {isDark ? (
-            <>
-              <span style={{ ...styles.crater, top: 3, left: 4, width: 4, height: 4 }} />
-              <span style={{ ...styles.crater, bottom: 4, right: 3, width: 3, height: 3 }} />
-            </>
-          ) : (
-            <Sun size={12} strokeWidth={2.5} style={{ color: '#d97706' }} />
-          )}
-        </div>
+          position: 'relative',
+          zIndex: 2,
+          width: 12,
+          height: 12,
+          borderRadius: 2,
+          background: 'var(--color-toggle-knob)',
+          transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          transform: isDark ? 'translateX(0)' : 'translateX(16px)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        }} />
       </div>
     </button>
   )
-}
-
-const styles = {
-  trigger: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
-    borderRadius: 'var(--radius-sm)',
-    outline: 'none',
-    marginLeft: 4
-  },
-  track: {
-    position: 'relative',
-    width: 44,
-    height: 22,
-    borderRadius: 11,
-    background: 'var(--color-toggle-track)',
-    padding: 2,
-    overflow: 'hidden',
-    transition: 'background 0.3s ease'
-  },
-  knob: {
-    position: 'relative',
-    zIndex: 2,
-    width: 18,
-    height: 18,
-    borderRadius: '50%',
-    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease, box-shadow 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  star: {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    borderRadius: '50%',
-    background: '#e4e4e7',
-    zIndex: 1,
-    transition: 'opacity 0.4s ease'
-  },
-  crater: {
-    position: 'absolute',
-    borderRadius: '50%',
-    background: 'rgba(0, 0, 0, 0.12)'
-  }
 }

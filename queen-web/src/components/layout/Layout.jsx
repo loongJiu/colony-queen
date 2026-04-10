@@ -72,7 +72,7 @@ const s = {
   },
   content: {
     flex: 1,
-    padding: 24,
-    overflowY: 'auto'
+    padding: '20px 24px',
+    overflowY: 'auto',
   }
 }

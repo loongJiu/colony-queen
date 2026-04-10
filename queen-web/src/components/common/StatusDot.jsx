@@ -1,36 +1,39 @@
 import { STATUS_COLORS } from '../../utils/constants'
 
 const sizeMap = {
-  sm: 6,
-  md: 8,
-  lg: 10
+  sm: 5,
+  md: 7,
+  lg: 9
 }
 
 export function StatusDot ({ status, size = 'md', pulse = false }) {
   const color = STATUS_COLORS[status] || '#6b7280'
-  const px = sizeMap[size] || 8
+  const px = sizeMap[size] || 7
+  const animName = `dot-blink-${status}-${px}`
 
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: px,
-        height: px,
-        borderRadius: '50%',
-        backgroundColor: color,
-        boxShadow: `0 0 ${px}px ${color}66`,
-        flexShrink: 0,
-        animation: pulse ? `dot-pulse-${status} 2s ease-in-out infinite` : undefined
-      }}
-    >
+    <>
       {pulse && (
         <style>{`
-          @keyframes dot-pulse-${status} {
-            0%, 100% { opacity: 1; box-shadow: 0 0 ${px}px ${color}66; }
-            50% { opacity: 0.6; box-shadow: 0 0 ${px * 2}px ${color}aa; }
+          @keyframes ${animName} {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
           }
         `}</style>
       )}
-    </span>
+      <span
+        style={{
+          display: 'inline-block',
+          width: px,
+          height: px,
+          borderRadius: pulse ? '50%' : 0,
+          transform: pulse ? undefined : 'rotate(45deg)',
+          backgroundColor: color,
+          boxShadow: `0 0 ${px}px ${color}66`,
+          flexShrink: 0,
+          animation: pulse ? `${animName} 1.6s step-end infinite` : undefined,
+        }}
+      />
+    </>
   )
 }
