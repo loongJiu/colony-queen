@@ -133,6 +133,10 @@ export class FeedbackService {
    * @returns {Promise<import('../models/feedback.js').FeedbackRecord>}
    */
   async submitUserFeedback(task, params) {
+    if (!task || !task.taskId) {
+      throw new Error('submitUserFeedback called with invalid task')
+    }
+
     const { userScore, comment, corrections } = params
 
     // 查找已有的自动评分记录

@@ -29,19 +29,19 @@ export function createSSEConnection (url, handlers) {
     }
 
     es.addEventListener('snapshot', (e) => {
-      handlers.onSnapshot?.(JSON.parse(e.data))
+      try { handlers.onSnapshot?.(JSON.parse(e.data)) } catch { /* ignore malformed JSON */ }
     })
 
     es.addEventListener('agent.updated', (e) => {
-      handlers.onAgentUpdated?.(JSON.parse(e.data))
+      try { handlers.onAgentUpdated?.(JSON.parse(e.data)) } catch { /* ignore malformed JSON */ }
     })
 
     es.addEventListener('task.updated', (e) => {
-      handlers.onTaskUpdated?.(JSON.parse(e.data))
+      try { handlers.onTaskUpdated?.(JSON.parse(e.data)) } catch { /* ignore malformed JSON */ }
     })
 
     es.addEventListener('task.log', (e) => {
-      handlers.onTaskLog?.(JSON.parse(e.data))
+      try { handlers.onTaskLog?.(JSON.parse(e.data)) } catch { /* ignore malformed JSON */ }
     })
 
     es.onerror = () => {

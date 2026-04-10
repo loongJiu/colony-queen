@@ -39,4 +39,11 @@ const schema = z.object({
 /** @type {z.infer<typeof schema>} */
 const config = schema.parse(process.env)
 
+// 生产环境安全检查
+if (config.NODE_ENV === 'production') {
+  if (config.QUEEN_SECRET === 'change-me-in-production' || config.COLONY_TOKEN === 'change-me-in-production') {
+    console.warn('[WARN] QUEEN_SECRET or COLONY_TOKEN is using default value in production! Please set secure values.')
+  }
+}
+
 export default config

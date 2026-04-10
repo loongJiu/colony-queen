@@ -54,7 +54,9 @@ export class LLMClient {
 
   /** @returns {boolean} */
   get isConfigured() {
-    return this.#apiKey !== ''
+    if (!this.#apiKey) return false
+    if (this.#provider === 'openai' && !this.#openaiBaseUrl) return false
+    return true
   }
 
   /** @returns {string} */
@@ -89,6 +91,9 @@ export class LLMClient {
         content = await this.#callOpenAI(prompt, options)
       } else {
         // GLM 和 Anthropic 共用 Anthropic SDK
+        if (!this.#client) {
+          throw new Error(`LLM client not initialized for provider: ${this.#provider}`)
+        }
         const response = await this.#client.messages.create(
           {
             model: this.#model,

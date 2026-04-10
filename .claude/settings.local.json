@@ -46,7 +46,8 @@
       "Bash(sed -i '' 's|http://127.0.0.1:8001|http://127.0.0.1:9009|g' demo-tasks.mjs)",
       "Bash(sleep 2 echo \"Backend: $\\(curl -s http://127.0.0.1:9009/health)",
       "Bash(git:*)",
-      "Bash(cat ~/.claude/tasks/phase3-week2/*.json)"
+      "Bash(cat ~/.claude/tasks/phase3-week2/*.json)",
+      "Bash(ls -la /private/tmp/claude-502/-Users-zcy1-git-other-colony-queen/a0b07a52-832e-4aa2-b0f5-88a7279ef2c5/tasks/*.output)"
     ]
   }
 }

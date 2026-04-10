@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createHash, createHmac } from 'node:crypto'
+import { createHmac } from 'node:crypto'
 import {
   verifyJoinSignature,
   verifySignedNonce,
@@ -10,34 +10,41 @@ describe('crypto', () => {
   const TOKEN = 'test-colony-token'
 
   describe('verifyJoinSignature', () => {
-    it('returns true for valid signature', () => {
-      const timestamp = '2026-04-03T10:00:00Z'
-      const signature = createHash('sha256')
-        .update(timestamp + TOKEN)
+    it('returns valid for fresh timestamp with correct signature', () => {
+      const timestamp = new Date().toISOString()
+      const signature = createHmac('sha256', TOKEN)
+        .update(timestamp)
         .digest('hex')
 
-      expect(verifyJoinSignature(timestamp, signature, TOKEN)).toBe(true)
+      const result = verifyJoinSignature(timestamp, signature, TOKEN)
+      expect(result.valid).toBe(true)
     })
 
-    it('returns false for invalid signature', () => {
-      expect(verifyJoinSignature('2026-04-03T10:00:00Z', 'bad-signature', TOKEN)).toBe(false)
+    it('returns invalid for bad signature', () => {
+      const timestamp = new Date().toISOString()
+      const result = verifyJoinSignature(timestamp, 'bad-signature', TOKEN)
+      expect(result.valid).toBe(false)
     })
 
-    it('returns false for wrong token', () => {
-      const timestamp = '2026-04-03T10:00:00Z'
-      const signature = createHash('sha256')
-        .update(timestamp + TOKEN)
+    it('returns invalid for wrong token', () => {
+      const timestamp = new Date().toISOString()
+      const signature = createHmac('sha256', TOKEN)
+        .update(timestamp)
         .digest('hex')
 
-      expect(verifyJoinSignature(timestamp, signature, 'wrong-token')).toBe(false)
+      const result = verifyJoinSignature(timestamp, signature, 'wrong-token')
+      expect(result.valid).toBe(false)
     })
 
-    it('returns false for wrong timestamp', () => {
-      const signature = createHash('sha256')
-        .update('2026-04-03T10:00:00Z' + TOKEN)
+    it('returns invalid for expired timestamp', () => {
+      const timestamp = '2020-01-01T00:00:00Z'
+      const signature = createHmac('sha256', TOKEN)
+        .update(timestamp)
         .digest('hex')
 
-      expect(verifyJoinSignature('2026-04-03T10:00:01Z', signature, TOKEN)).toBe(false)
+      const result = verifyJoinSignature(timestamp, signature, TOKEN)
+      expect(result.valid).toBe(false)
+      expect(result.reason).toBeTruthy()
     })
   })
 

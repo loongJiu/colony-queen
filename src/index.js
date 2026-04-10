@@ -177,10 +177,9 @@ const heartbeatMonitor = new HeartbeatMonitor({
   timeoutMs: config.HEARTBEAT_TIMEOUT_MS,
   eventBus
 })
-heartbeatMonitor.start()
 
 // 注册管理路由（需要 heartbeatMonitor）
-app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor, eventBus })
+app.register(adminRoutes, { hive, executor, heartbeat: heartbeatMonitor, eventBus, waggle })
 
 // 注册统计与画像管理路由
 app.register(statsRoutes, { hive, executor, store, sessionService })
@@ -212,6 +211,10 @@ app.addHook('onReady', async () => {
     scheduler.updateProfileCache(profile)
   })
 
+  // 启动心跳监控（移到 onReady，确保 store 已初始化）
+  heartbeatMonitor.start()
+  app.log.info('HeartbeatMonitor started')
+
   // 启动任务重调度器
   rescheduler.start()
   app.log.info('TaskRescheduler started')
@@ -234,18 +237,33 @@ process.on('unhandledRejection', (reason) => {
   app.log.error({ err: reason }, 'Unhandled rejection')
 })
 
+let isShuttingDown = false
+
 process.on('uncaughtException', (err) => {
   app.log.fatal({ err }, 'Uncaught exception — shutting down')
+  if (isShuttingDown) return
+  isShuttingDown = true
   app.close().then(() => process.exit(1)).catch(() => process.exit(1))
 })
 
 // 优雅关机
 function gracefulShutdown(signal) {
+  if (isShuttingDown) return
+  isShuttingDown = true
   app.log.info({ signal }, 'Received shutdown signal, closing server...')
+
+  // 5 秒超时强制退出
+  const forceTimer = setTimeout(() => {
+    app.log.error('Graceful shutdown timed out, forcing exit')
+    process.exit(1)
+  }, 5000)
+
   app.close().then(() => {
+    clearTimeout(forceTimer)
     app.log.info('Server closed gracefully')
     process.exit(0)
   }).catch((err) => {
+    clearTimeout(forceTimer)
     app.log.error({ err }, 'Error during graceful shutdown')
     process.exit(1)
   })

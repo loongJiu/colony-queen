@@ -35,7 +35,9 @@ export default function streamRoutes (app, { hive, executor, eventBus }) {
     // 写入 SSE 事件的工具函数
     const send = (event, data) => {
       if (reply.raw.destroyed) return
-      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      try {
+        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      } catch { /* 连接可能已关闭 */ }
     }
 
     // 1. 立即推送当前快照
@@ -80,9 +82,9 @@ export default function streamRoutes (app, { hive, executor, eventBus }) {
       log.info('SSE client disconnected')
     })
 
-    // 永不 resolve，保持 SSE 连接
-    await new Promise((_, reject) => {
-      req.raw.on('close', reject)
+    // 永不 resolve，保持 SSE 连接（客户端断开时 resolve 结束处理）
+    await new Promise((resolve) => {
+      req.raw.on('close', resolve)
     })
   })
 }

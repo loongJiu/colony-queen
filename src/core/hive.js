@@ -212,9 +212,14 @@ export class Hive {
 
     const statusChanged = record.status !== newStatus
 
+    // 显式解构已知字段，防止任意字段注入
+    const { load, activeTasks, queueDepth } = healthData
+
     const updated = Object.freeze({
       ...record,
-      ...healthData,
+      ...(load != null && { load }),
+      ...(activeTasks != null && { activeTasks }),
+      ...(queueDepth != null && { queueDepth }),
       status: newStatus,
       lastHeartbeat: Date.now()
     })

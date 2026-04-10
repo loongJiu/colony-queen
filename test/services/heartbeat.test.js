@@ -25,17 +25,17 @@ describe('HeartbeatMonitor', () => {
   // ── check ───────────────────────────────────
 
   describe('check', () => {
-    it('returns empty array when all agents have recent heartbeats', () => {
+    it('returns empty array when all agents have recent heartbeats', async () => {
       const { monitor } = setup()
-      expect(monitor.check()).toEqual([])
+      expect(await monitor.check()).toEqual([])
     })
 
-    it('returns empty array when no agents registered', () => {
+    it('returns empty array when no agents registered', async () => {
       const { monitor } = setup()
-      expect(monitor.check()).toEqual([])
+      expect(await monitor.check()).toEqual([])
     })
 
-    it('marks agent offline when heartbeat exceeds timeout', () => {
+    it('marks agent offline when heartbeat exceeds timeout', async () => {
       const { hive, monitor } = setup()
       const agent = hive.register(makeSpec(), 'sess_1')
 
@@ -47,7 +47,7 @@ describe('HeartbeatMonitor', () => {
       const fakeNow = agent.lastHeartbeat + 10000 // 超过 timeoutMs(5000)
       Date.now = () => fakeNow
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       Date.now = originalNow
 
@@ -55,17 +55,17 @@ describe('HeartbeatMonitor', () => {
       expect(hive.get(agent.agentId).status).toBe('offline')
     })
 
-    it('does not mark agent offline within timeout', () => {
+    it('does not mark agent offline within timeout', async () => {
       const { hive, monitor } = setup()
       const agent = hive.register(makeSpec(), 'sess_1')
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       expect(result).toEqual([])
       expect(hive.get(agent.agentId).status).toBe('idle')
     })
 
-    it('skips already offline agents', () => {
+    it('skips already offline agents', async () => {
       const { hive, monitor } = setup()
       const agent = hive.register(makeSpec(), 'sess_1')
       hive.markOffline(agent.agentId)
@@ -73,14 +73,14 @@ describe('HeartbeatMonitor', () => {
       const originalNow = Date.now
       Date.now = () => hive.get(agent.agentId).lastHeartbeat + 10000
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       Date.now = originalNow
 
       expect(result).toEqual([])
     })
 
-    it('skips unregistered agents', () => {
+    it('skips unregistered agents', async () => {
       const { hive, monitor } = setup()
       const agent = hive.register(makeSpec(), 'sess_1')
       const agentId = agent.agentId
@@ -92,14 +92,14 @@ describe('HeartbeatMonitor', () => {
       // 在 check 之前注销
       hive.unregister(agentId)
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       Date.now = originalNow
 
       expect(result).toEqual([])
     })
 
-    it('handles multiple agents timing out', () => {
+    it('handles multiple agents timing out', async () => {
       const { hive, monitor } = setup()
       const a = hive.register(makeSpec({ identity: { name: 'A' } }), 'sess_1')
       const b = hive.register(makeSpec({ identity: { name: 'B' } }), 'sess_2')
@@ -107,7 +107,7 @@ describe('HeartbeatMonitor', () => {
       const originalNow = Date.now
       Date.now = () => a.lastHeartbeat + 10000
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       Date.now = originalNow
 
@@ -116,7 +116,7 @@ describe('HeartbeatMonitor', () => {
       expect(result).toContain(b.agentId)
     })
 
-    it('only marks timed-out agents, not healthy ones', () => {
+    it('only marks timed-out agents, not healthy ones', async () => {
       const { hive, monitor } = setup()
       const stale = hive.register(makeSpec({ identity: { name: 'Stale' } }), 'sess_1')
 
@@ -127,7 +127,7 @@ describe('HeartbeatMonitor', () => {
       // 在"超时"时刻注册 healthy，它的 lastHeartbeat 就是当前 mock 时间
       const healthy = hive.register(makeSpec({ identity: { name: 'Healthy' } }), 'sess_2')
 
-      const result = monitor.check()
+      const result = await monitor.check()
 
       Date.now = originalNow
 
@@ -150,7 +150,7 @@ describe('HeartbeatMonitor', () => {
       const originalNow = Date.now
       Date.now = () => agent.lastHeartbeat + 10000
 
-      monitor.check()
+      await monitor.check()
 
       Date.now = originalNow
 

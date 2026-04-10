@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import Fastify from 'fastify'
-import { createHash, createHmac } from 'node:crypto'
+import { createHmac } from 'node:crypto'
 import { Hive } from '../../src/core/hive.js'
 import { BeeError } from '../../src/utils/errors.js'
 import colonyRoutes from '../../src/handlers/colony.js'
@@ -31,7 +31,7 @@ function makeSpec(overrides = {}) {
 }
 
 function signJoin(timestamp, token) {
-  return createHash('sha256').update(timestamp + token).digest('hex')
+  return createHmac('sha256', token).update(timestamp).digest('hex')
 }
 
 function signNonce(nonce, token) {

@@ -6,6 +6,7 @@
  */
 
 import { STORAGE_METHODS } from './interface.js'
+import { DuplicateIdError } from '../utils/errors.js'
 
 export class MemoryStore {
   /** @type {Map<string, import('../models/feedback.js').FeedbackRecord>} feedbackId → FeedbackRecord */
@@ -51,7 +52,7 @@ export class MemoryStore {
    */
   async insertFeedback(record) {
     if (this.#feedbacks.has(record.feedbackId)) {
-      throw new Error(`Duplicate feedbackId: ${record.feedbackId}`)
+      throw new DuplicateIdError(`Duplicate feedbackId: ${record.feedbackId}`)
     }
 
     this.#feedbacks.set(record.feedbackId, record)
@@ -119,7 +120,7 @@ export class MemoryStore {
    */
   async insertPlanCase(record) {
     if (this.#planCases.has(record.caseId)) {
-      throw new Error(`Duplicate caseId: ${record.caseId}`)
+      throw new DuplicateIdError(`Duplicate caseId: ${record.caseId}`)
     }
     this.#planCases.set(record.caseId, record)
     return record
@@ -326,7 +327,7 @@ export class MemoryStore {
    */
   async insertSession(record) {
     if (this.#sessions.has(record.sessionId)) {
-      throw new Error(`Duplicate sessionId: ${record.sessionId}`)
+      throw new DuplicateIdError(`Duplicate sessionId: ${record.sessionId}`)
     }
     this.#sessions.set(record.sessionId, record)
     return record

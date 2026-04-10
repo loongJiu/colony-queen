@@ -48,7 +48,14 @@ export class HeartbeatMonitor {
    */
   start() {
     if (this.#timer) return
-    this.#timer = setInterval(() => this.check(), this.#intervalMs)
+    this.#timer = setInterval(async () => {
+      try {
+        await this.check()
+      } catch (err) {
+        // 防止 unhandled rejection 导致进程崩溃
+        console.error('HeartbeatMonitor check failed:', err.message)
+      }
+    }, this.#intervalMs)
   }
 
   /**
@@ -64,9 +71,9 @@ export class HeartbeatMonitor {
   /**
    * 执行一次心跳检查
    *
-   * @returns {string[]} 本次被标记 offline 的 agentId 列表
+   * @returns {Promise<string[]>} 本次被标记 offline 的 agentId 列表
    */
-  check() {
+  async check() {
     const now = Date.now()
     const timedOut = []
 

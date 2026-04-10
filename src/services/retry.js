@@ -12,9 +12,6 @@ import config from '../config.js'
  */
 
 export class RetryService {
-  /** @type {number} 上次重试时间戳 */
-  #lastRetryTime = 0
-
   /**
    * 执行带重试的操作
    *
@@ -115,19 +112,11 @@ export class RetryService {
    * @returns {Promise<void>}
    */
   async #ensureMinRetryInterval(retryCount, logger) {
-    const now = Date.now()
     const backoff = this.#calculateBackoff(retryCount)
 
-    if (this.#lastRetryTime > 0) {
-      const elapsed = now - this.#lastRetryTime
-      const waitTime = Math.max(0, backoff - elapsed)
-
-      if (waitTime > 0) {
-        logger.debug({ retryCount, backoff, elapsed, waitTime }, 'Waiting before retry')
-        await new Promise(resolve => setTimeout(resolve, waitTime))
-      }
+    if (backoff > 0) {
+      logger.debug({ retryCount, backoff }, 'Waiting before retry')
+      await new Promise(resolve => setTimeout(resolve, backoff))
     }
-
-    this.#lastRetryTime = Date.now()
   }
 }

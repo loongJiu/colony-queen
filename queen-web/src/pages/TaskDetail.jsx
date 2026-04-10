@@ -1040,14 +1040,17 @@ function ParallelLayout ({ steps, expandedStep, onExpand, isActive, planSteps, m
         })}
       </div>
 
-      {/* Parallel step cards */}
+      {/* Parallel step cards — always compact, detail shown below grid */}
       <div style={{
         ...ef.parallelGrid,
-        gridTemplateColumns: steps.length <= 2 ? `repeat(${steps.length}, 1fr)` : undefined,
+        gridTemplateColumns: steps.length <= 2
+          ? `repeat(${steps.length}, 1fr)`
+          : 'repeat(auto-fill, minmax(180px, 1fr))',
       }}>
         {steps.map((step, i) => {
           const sColor = STEP_COLORS[step.status] || STEP_COLORS.pending
           const sRunning = step.status === 'running'
+          const isSelected = expandedStep === step.stepIndex
           return (
             <div key={step.stepIndex} style={{
               ...ef.branchCard,
@@ -1062,17 +1065,41 @@ function ParallelLayout ({ steps, expandedStep, onExpand, isActive, planSteps, m
               }}>
                 B{i + 1}
               </div>
-            <StepCard
-              step={step}
-              index={i}
-              expanded={expandedStep === step.stepIndex}
-              onExpand={() => onExpand(expandedStep === step.stepIndex ? null : step.stepIndex)}
-              planStep={planSteps?.[i]}
-            />
-          </div>
+              <StepCard
+                step={step}
+                index={i}
+                expanded={false}
+                onExpand={() => onExpand(isSelected ? null : step.stepIndex)}
+                planStep={planSteps?.[i]}
+                compact
+                highlighted={isSelected}
+              />
+            </div>
           )
         })}
       </div>
+      {/* Expanded detail — full-width panel below the grid */}
+      {expandedStep != null && (() => {
+        const idx = steps.findIndex(s => s.stepIndex === expandedStep)
+        if (idx < 0) return null
+        const estep = steps[idx]
+        const ecolor = STEP_COLORS[estep.status] || STEP_COLORS.pending
+        return (
+          <div style={{
+            ...ef.expandedDetailPanel,
+            borderColor: `${ecolor}30`,
+          }}>
+            <StepCard
+              step={estep}
+              index={idx}
+              expanded={true}
+              onExpand={() => onExpand(null)}
+              planStep={planSteps?.[idx]}
+              full
+            />
+          </div>
+        )
+      })()}
 
       {/* Branch lines (merge) */}
       <div style={ef.branchFork}>
@@ -1126,8 +1153,77 @@ function SingleLayout ({ step, expanded, onExpand, planStep }) {
   )
 }
 
+/* ── Step Output View — 智能输出渲染 ── */
+function StepOutputView ({ output }) {
+  const [copied, setCopied] = useState(false)
+
+  const { mainText, fields, raw } = useMemo(() => {
+    if (output == null) return { raw: null }
+    let data = output
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data) } catch { return { mainText: data, raw: data } }
+    }
+    if (typeof data === 'string') return { mainText: data, raw: data }
+    if (typeof data !== 'object' || data === null) return { raw: String(data) }
+
+    const { result, ...meta } = data
+    const main = result != null
+      ? (typeof result === 'string' ? result : JSON.stringify(result, null, 2))
+      : null
+    const flds = result != null
+      ? Object.entries(meta)
+      : Object.entries(data).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v
+            : typeof v === 'number' || typeof v === 'boolean' ? String(v)
+            : JSON.stringify(v, null, 2),
+        ])
+
+    return {
+      mainText: main,
+      fields: flds.length > 0 ? flds : null,
+      raw: typeof output === 'string' ? output : JSON.stringify(output, null, 2),
+    }
+  }, [output])
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(raw || '').then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [raw])
+
+  if (raw == null) return null
+
+  return (
+    <div style={ef.detailSection}>
+      <div style={ef.outputHeader}>
+        <span style={ef.detailLabel}>Output</span>
+        <button onClick={handleCopy} style={ef.outputCopyBtn}>
+          {copied ? <Check size={10} style={{ color: '#34d399' }} /> : <Copy size={10} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      {mainText && <div style={ef.outputTextContent}>{mainText}</div>}
+      {fields?.length > 0 && (
+        <div style={ef.outputKVGrid}>
+          {fields.map(([key, val]) => (
+            <div key={key} style={ef.outputKVItem}>
+              <span style={ef.outputKVKey}>{key}</span>
+              <span style={ef.outputKVValue}>{String(val)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!mainText && !fields?.length && (
+        <pre style={ef.detailPre}>{raw}</pre>
+      )}
+    </div>
+  )
+}
+
 /* ── Step Card (shared) ── */
-function StepCard ({ step, index, expanded, onExpand, planStep, compact, full }) {
+function StepCard ({ step, index, expanded, onExpand, planStep, compact, full, highlighted }) {
   const [showRetry, setShowRetry] = useState(false)
   const [hovered, setHovered] = useState(false)
   const color = STEP_COLORS[step.status] || STEP_COLORS.pending
@@ -1141,11 +1237,13 @@ function StepCard ({ step, index, expanded, onExpand, planStep, compact, full })
     <div
       style={{
         ...ef.stepCard,
-        borderColor: `${color}25`,
+        borderColor: highlighted ? `${color}55` : `${color}25`,
         background: 'var(--color-surface)',
-        boxShadow: isRunning
-          ? `0 0 12px ${color}15, 0 2px 8px rgba(0,0,0,0.2)`
-          : `0 2px 8px rgba(0,0,0,0.18)`,
+        boxShadow: highlighted
+          ? `0 0 16px ${color}20, 0 0 0 1px ${color}30, 0 2px 8px rgba(0,0,0,0.2)`
+          : isRunning
+            ? `0 0 12px ${color}15, 0 2px 8px rgba(0,0,0,0.2)`
+            : `0 2px 8px rgba(0,0,0,0.18)`,
         ...(full ? ef.stepCardFull : {}),
       }}
       onMouseEnter={() => setHovered(true)}
@@ -1667,12 +1765,7 @@ function StepCard ({ step, index, expanded, onExpand, planStep, compact, full })
 
           {/* Output */}
           {step.output != null && (
-            <div style={ef.detailSection}>
-              <span style={ef.detailLabel}>Output</span>
-              <pre style={ef.detailPre}>
-                {typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2)}
-              </pre>
-            </div>
+            <StepOutputView output={step.output} />
           )}
 
           {/* Error */}
@@ -2707,9 +2800,16 @@ const ef = {
   },
   parallelGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
     gap: 12,
     padding: '8px 0',
+  },
+  expandedDetailPanel: {
+    margin: '8px 0 0',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius)',
+    overflow: 'hidden',
+    animation: 'stepCardReveal 0.25s var(--ease-out)',
   },
   branchCard: {
     position: 'relative',
@@ -2881,6 +2981,69 @@ const ef = {
     display: 'flex',
     flexDirection: 'column',
     gap: 6,
+  },
+  outputHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  outputCopyBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 10,
+    fontFamily: "'JetBrains Mono', monospace",
+    color: 'var(--color-text-muted)',
+    padding: '2px 8px',
+    borderRadius: 4,
+    border: '1px solid var(--color-border)',
+    background: 'var(--color-surface-hover)',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  outputTextContent: {
+    fontSize: 13,
+    color: 'var(--color-text)',
+    lineHeight: 1.7,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    padding: 14,
+    background: 'var(--color-surface-hover)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    maxHeight: 200,
+    overflow: 'auto',
+  },
+  outputKVGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  outputKVItem: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 10,
+    padding: '6px 12px',
+    background: 'var(--color-surface-hover)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+  },
+  outputKVKey: {
+    fontSize: 11,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontWeight: 600,
+    color: 'var(--color-primary)',
+    minWidth: 60,
+    flexShrink: 0,
+  },
+  outputKVValue: {
+    fontSize: 12,
+    fontFamily: "'JetBrains Mono', monospace",
+    color: 'var(--color-text-secondary)',
+    lineHeight: 1.5,
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
   },
   detailLabel: {
     fontSize: 10,

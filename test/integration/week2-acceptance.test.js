@@ -140,7 +140,7 @@ describe('Week 2 验收', () => {
 
   // ── 场景 5: 心跳超时 → offline → 调度排除 ──
 
-  it('心跳超时的 Agent 被标记 offline，Scheduler 不再选择它', () => {
+  it('心跳超时的 Agent 被标记 offline，Scheduler 不再选择它', async () => {
     const hive = new Hive()
     const waggle = new Waggle()
     const scheduler = new Scheduler({ hive })
@@ -170,7 +170,7 @@ describe('Week 2 验收', () => {
     // 当前 mock Date.now = aHeartbeat + 10000
     // A 超时（10000 > 5000），B 未超时（0 < 5000）
 
-    const timedOut = monitor.check()
+    const timedOut = await monitor.check()
 
     Date.now = originalNow
 
@@ -183,7 +183,7 @@ describe('Week 2 验收', () => {
     expect(selected.agentId).toBe(b.agentId)
   })
 
-  it('所有 Worker offline 时 Scheduler 抛出 UnavailableError', () => {
+  it('所有 Worker offline 时 Scheduler 抛出 UnavailableError', async () => {
     const hive = new Hive()
     const waggle = new Waggle()
     const scheduler = new Scheduler({ hive })
@@ -195,7 +195,7 @@ describe('Week 2 验收', () => {
 
     const originalNow = Date.now
     Date.now = () => a.lastHeartbeat + 10000
-    monitor.check()
+    await monitor.check()
     Date.now = originalNow
 
     expect(() => scheduler.selectAgent('search')).toThrow(UnavailableError)
@@ -215,7 +215,7 @@ describe('Week 2 验收', () => {
 
     const originalNow = Date.now
     Date.now = () => agent.lastHeartbeat + 10000
-    monitor.check()
+    await monitor.check()
     Date.now = originalNow
 
     expect(events).toHaveLength(1)
@@ -265,7 +265,7 @@ describe('Week 2 验收', () => {
 
     // 5. 心跳超时：s1 的 lastHeartbeat 是 s1Heartbeat，now 是 s1Heartbeat+10000，超时
     //    Coder/Analyst 的 lastHeartbeat 是 s1Heartbeat+10000，now 也是 s1Heartbeat+10000，未超时
-    monitor.check()
+    await monitor.check()
 
     // 6. 调度排除 offline Agent
     expect(() => scheduler.selectAgent('search')).toThrow(UnavailableError)

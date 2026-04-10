@@ -76,7 +76,7 @@ export class Executor {
     this.#emitLog(task.taskId, 'executor', `任务开始执行，策略: ${task.strategy}，共 ${task.steps.length} 步`)
 
     // 重放规划阶段日志（持久化到 #taskLogs）
-    if (task.planLogs?.length > 0) {
+    if (Array.isArray(task.planLogs) && task.planLogs.length > 0) {
       for (const log of task.planLogs) {
         this.#emitLog(task.taskId, log.source || 'planner', log.message, {
           timestamp: log.timestamp

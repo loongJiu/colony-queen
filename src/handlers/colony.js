@@ -32,12 +32,19 @@ export default function colonyRoutes(app, options) {
       throw new ValidationError('Missing required fields: spec, timestamp, signature')
     }
 
-    if (!verifyJoinSignature(timestamp, signature, colonyToken)) {
-      throw new UnauthorizedError('Invalid signature')
+    const sigCheck = verifyJoinSignature(timestamp, signature, colonyToken)
+    if (!sigCheck.valid) {
+      throw new UnauthorizedError(sigCheck.reason ?? 'Invalid signature')
     }
 
     const nonce = generateNonce()
     const expiresAt = Date.now() + NONCE_TTL_MS
+
+    // 清理过期的 challenge 条目（防止内存泄漏）
+    const now = Date.now()
+    for (const [key, val] of pendingChallenges) {
+      if (now > val.expiresAt) pendingChallenges.delete(key)
+    }
 
     pendingChallenges.set(nonce, { spec, expiresAt })
 

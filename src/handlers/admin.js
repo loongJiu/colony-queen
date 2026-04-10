@@ -16,7 +16,7 @@ import { NotFoundError } from '../utils/errors.js'
  * @param {import('../services/executor.js').Executor} options.executor
  * @param {import('../services/heartbeat.js').HeartbeatMonitor} options.heartbeat
  */
-export default function adminRoutes(app, { hive, executor, heartbeat, eventBus }) {
+export default function adminRoutes(app, { hive, executor, heartbeat, eventBus, waggle }) {
 
   /**
    * GET /admin/agents
@@ -118,14 +118,14 @@ export default function adminRoutes(app, { hive, executor, heartbeat, eventBus }
 
     // 通知 Waggle（best-effort）
     try {
-      app.waggle?.broadcast({
+      waggle?.broadcast({
         type: 'event.broadcast',
         event_name: 'agent.force_removed',
         data: { agentId: id, reason: 'admin_delete' }
       })
     } catch { /* 忽略广播失败 */ }
 
-    reply.code(204)
+    reply.status(204)
     return
   })
 }
