@@ -1,0 +1,83 @@
+/* ── 超现实仪式 · 蜂后降旨 / 注入气运 ── */
+
+/* Backdrop 渐入/渐出 */
+@keyframes ritualFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ritualFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 蜂后王座显现 */
+@keyframes queenThroneReveal {
+  from { opacity: 0; transform: scale(0.8); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+/* 翅膀高频微振动 */
+@keyframes wingVibrateLeft {
+  0% { transform: translateX(0) scaleX(1); }
+  50% { transform: translateX(-3px) scaleX(0.95); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+@keyframes wingVibrateRight {
+  0% { transform: translateX(0) scaleX(1); }
+  50% { transform: translateX(3px) scaleX(0.95); }
+  100% { transform: translateX(0) scaleX(1); }
+}
+
+/* 王冠脉冲发光 */
+@keyframes crownGlow {
+  0%, 100% { filter: drop-shadow(0 0 3px #ffc107); opacity: 0.85; }
+  50% { filter: drop-shadow(0 0 10px #ffc107) drop-shadow(0 0 20px #ffc10766); opacity: 1; }
+}
+
+/* 能量脉冲环外扩 */
+@keyframes energyPulseExpand {
+  0% { transform: scale(0.3); opacity: 0.8; }
+  100% { transform: scale(6); opacity: 0; }
+}
+
+/* 径向光束旋转 */
+@keyframes radialBeamRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 单条光束脉冲 */
+@keyframes radialBeamPulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.45; }
+}
+
+/* 文字上浮显现 */
+@keyframes ritualTextReveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 粒子散射（各方向通过 CSS 自定义属性控制） */
+@keyframes particleScatter {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--px, 40px), var(--py, -30px)) scale(0); opacity: 0; }
+}
+
+/* 王座底座能量光 */
+@keyframes throneEnergyGlow {
+  0%, 100% { box-shadow: 0 0 8px 2px var(--ritual-color, #00e5ff)33; }
+  50% { box-shadow: 0 0 20px 6px var(--ritual-color, #00e5ff)55; }
+}
+
+/* 蜂后腹部呼吸 */
+@keyframes abdomenPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* 全局渐出（退出阶段） */
+@keyframes ritualExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
